@@ -1,0 +1,16 @@
+[package]
+name = "nats"
+version = "0.1.0"
+authors = ["Frank Denis <j [at] pureftpd.org>"]
+keywords = ["nats", "natsd", "queue", "client", "library"]
+readme = "README.md"
+license = "ISC"
+homepage = "https://github.com/jedisct1/rust-nats"
+
+[dependencies]
+rand = "*"
+serde = "*"
+serde_json = "*"
+serde_macros = "*"
+time = "*"
+url = "*"
