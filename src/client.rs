@@ -126,8 +126,8 @@ impl Client {
         self.verbose = synchronous;
     }
 
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    pub fn set_name(&mut self, name: &str) {
+        self.name = name.to_owned();
     }
 
     pub fn subscribe(&mut self, subject: &str, queue: Option<&str>) -> Result<Channel, NatsError> {
@@ -546,7 +546,7 @@ fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<
 fn client_test() {
     let mut client = Client::new(vec!("nats://user:password@127.0.0.1")).unwrap();
     client.set_synchronous(false);
-    client.set_name("test".to_owned());
+    client.set_name("test");
     client.subscribe("chan", None).unwrap();
     client.publish("chan", "test".as_bytes()).unwrap();
     client.wait().unwrap();
