@@ -1,2 +1,6 @@
-target
+*.dSYM
+*~
+.rust
 Cargo.lock
+build
+target
