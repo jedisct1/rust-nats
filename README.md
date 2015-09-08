@@ -90,6 +90,12 @@ the group.
 client.unsubscribe(s1).unwrap();
 ```
 
+Or to remove it after `n` messages have been received:
+
+```rust
+client.unsubscribe_after(s1, n).unwrap();
+```
+
 Receiving events
 ================
 
