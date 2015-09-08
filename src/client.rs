@@ -74,12 +74,12 @@ struct ConnectWithCredentials {
     pass: String
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Channel {
     sid: u64
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Event {
     subject: String,
     channel: Channel,
