@@ -1,11 +1,13 @@
 [package]
 name = "nats"
 version = "0.1.0"
+description = "A client for the NATS message queue"
 authors = ["Frank Denis <j [at] pureftpd.org>"]
 keywords = ["nats", "natsd", "queue", "client", "library"]
 readme = "README.md"
 license = "ISC"
 homepage = "https://github.com/jedisct1/rust-nats"
+repository = "https://github.com/jedisct1/rust-nats"
 
 [dependencies]
 rand = "*"
