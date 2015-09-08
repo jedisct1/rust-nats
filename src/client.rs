@@ -87,6 +87,10 @@ pub struct Event {
     inbox: Option<String>
 }
 
+pub struct Events<'t> {
+    client: &'t mut Client
+}
+
 impl Client {
     pub fn new<T: ToStringVec>(uris: T) -> Result<Client, NatsError> {
         let mut servers_info = Vec::new();
@@ -190,9 +194,9 @@ impl Client {
         Ok(inbox)
     }
 
-    pub fn wait(&mut self) -> Result<Option<Event>, NatsError> {
+    pub fn wait(&mut self) -> Result<Event, NatsError> {
         try!(self.maybe_connect());
-        self.with_reconnect(|mut state| -> Result<Option<Event>, NatsError> {
+        self.with_reconnect(|mut state| -> Result<Event, NatsError> {
             let mut buf_reader = &mut state.buf_reader;
             loop {
                 let mut line = String::new();
@@ -212,6 +216,12 @@ impl Client {
                 try!(state.stream_writer.write_all(cmd.as_bytes()));
             }
         })
+    }
+
+    pub fn events(&mut self) -> Events {
+        Events {
+            client: self
+        }
     }
 
     fn try_connect(&mut self) -> io::Result<()> {
@@ -386,6 +396,18 @@ impl Client {
     }
 }
 
+impl<'t> Iterator for Events<'t> {
+    type Item = Event;
+
+    fn next(&mut self) -> Option<Event> {
+        let mut client = &mut self.client;
+        match client.wait() {
+            Ok(event) => Some(event),
+            Err(_) => None
+        }
+    }
+}
+
 pub trait ToStringVec {
     fn to_string_vec(self) -> Vec<String>;
 }
@@ -500,7 +522,7 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     Ok(())
 }
 
-fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<Option<Event>, NatsError> {
+fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<Event, NatsError> {
     if line.len() < "MSG _ _ _\r\n".len() {
         return Err(NatsError::from((ErrorKind::ServerProtocolError, "Incomplete server response", line.clone())));
     }
@@ -539,7 +561,7 @@ fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<
         msg: msg,
         inbox: inbox
     };
-    Ok(Some(event))
+    Ok(event)
 }
 
 #[test]
@@ -554,4 +576,10 @@ fn client_test() {
     client.unsubscribe(s).unwrap();
     client.make_request("chan", "test".as_bytes()).unwrap();
     client.wait().unwrap();
+    client.subscribe("chan.*", None).unwrap();
+    client.publish("chan", "test1".as_bytes()).unwrap();
+    client.publish("chan", "test2".as_bytes()).unwrap();
+    client.publish("chan", "test3".as_bytes()).unwrap();
+    client.publish("chan.last", "test4".as_bytes()).unwrap();
+    client.events().find(|event| event.subject == "chan.last").unwrap();
 }
