@@ -3,7 +3,8 @@
 
 extern crate serde;
 
-pub use client::Client;
+pub use client::*;
+pub use errors::*;
 
 mod client;
 mod errors;
