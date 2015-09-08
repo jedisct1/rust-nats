@@ -1,7 +1,8 @@
 Rust-NATS
 =========
 
-Rust-NATS is a Rust client library for the [https://nats.io](NATS) message queue.
+Rust-NATS is a Rust client library for the [NATS](https://nats.io) message
+queue.
 
 The crate is called `nats` and can be added as a dependency using Cargo:
 
