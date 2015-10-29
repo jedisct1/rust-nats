@@ -316,8 +316,8 @@ impl Client {
         }
         self.state = None;
         let servers_count = self.servers_info.len();
-        for _ in (0..CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING) {
-            for _ in (0..servers_count) {
+        for _ in 0..CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING {
+            for _ in 0..servers_count {
                 if self.try_connect().is_ok() {
                     if self.state.is_none() {
                         panic!("Inconsistent state");
@@ -349,7 +349,7 @@ impl Client {
 
     fn with_reconnect<F, T>(&mut self, f: F) -> Result<T, NatsError> where F: Fn(&mut ClientState) -> Result<T, NatsError> {
         let mut res: Result<T, NatsError> = Err(NatsError::from((ErrorKind::IoError, "I/O error")));
-        for _ in (0..RETRIES_MAX) {
+        for _ in 0..RETRIES_MAX {
             let mut state = self.state.take().unwrap();
             res = match f(&mut state) {
                 e @ Err(_) => match self.reconnect() {
