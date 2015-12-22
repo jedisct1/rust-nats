@@ -75,15 +75,15 @@ struct ConnectWithCredentials {
 
 #[derive(Debug)]
 pub struct Channel {
-    sid: u64
+    pub sid: u64
 }
 
 #[derive(Debug)]
 pub struct Event {
-    subject: String,
-    channel: Channel,
-    msg: Vec<u8>,
-    inbox: Option<String>
+    pub subject: String,
+    pub channel: Channel,
+    pub msg: Vec<u8>,
+    pub inbox: Option<String>
 }
 
 pub struct Events<'t> {

@@ -109,10 +109,10 @@ let event = client.wait();
 This returns an `Event` structure:
 ```rust
 pub struct Event {
-    subject: String,
-    channel: Channel,
-    msg: Vec<u8>,
-    inbox: Option<String>
+    pub subject: String,
+    pub channel: Channel,
+    pub msg: Vec<u8>,
+    pub inbox: Option<String>
 }
 ```
 
