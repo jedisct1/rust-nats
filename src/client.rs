@@ -377,7 +377,7 @@ impl Client {
         let mut cmd: Vec<u8> = cmd.as_bytes().to_owned();
         let cmd_len0 = cmd.len();
         cmd.reserve(cmd_len0 + msg_len + 2);
-        cmd.push_all(msg);
+        cmd.extend_from_slice(msg);
         cmd.push(0x0d);
         cmd.push(0x0a);
         let verbose = self.verbose;
@@ -488,7 +488,7 @@ fn read_exact<R: BufRead + ?Sized>(reader: &mut R, buf: &mut Vec<u8>) -> io::Res
                 Err(e) => return Err(e)
             };
             let used = cmp::min(buffer.len(), to_read);
-            buf.push_all(&buffer[..used]);
+            buf.extend_from_slice(&buffer[..used]);
             used
         };
         reader.consume(used);

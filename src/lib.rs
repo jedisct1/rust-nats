@@ -1,4 +1,4 @@
-#![feature(custom_derive, plugin, vec_push_all, time2)]
+#![feature(custom_derive, plugin, time2)]
 #![plugin(serde_macros)]
 
 extern crate serde;
