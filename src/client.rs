@@ -2,23 +2,22 @@ extern crate rand;
 extern crate url;
 extern crate serde;
 extern crate serde_json;
-extern crate time;
 
 use errors::*;
 use errors::ErrorKind::*;
 use self::rand::{thread_rng, Rng};
 use self::serde_json::de;
 use self::serde_json::value::Value;
-use self::time::{Duration, SteadyTime};
 use self::url::{ParseError, ParseResult, SchemeType, Url, UrlParser};
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 use std::thread;
+use std::time::{Duration, Instant};
 
-const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: i64 = 2000;
-const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u32 = 250;
+const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
+const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
 const CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING: u32 = 4;
 const DEFAULT_NAME: &'static str = "#rustlang";
 const DEFAULT_PORT: u16 = 4222;
@@ -54,7 +53,7 @@ pub struct Client {
     pedantic: bool,
     name: String,
     state: Option<ClientState>,
-    circuit_breaker: Option<SteadyTime>,
+    circuit_breaker: Option<Instant>,
     sid: u64
 }
 
@@ -309,7 +308,7 @@ impl Client {
 
     fn connect(&mut self) -> Result<(), NatsError> {
         if let Some(circuit_breaker) = self.circuit_breaker {
-            if SteadyTime::now() - circuit_breaker < Duration::milliseconds(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS) {
+            if circuit_breaker.elapsed() < Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS) {
                 return Err(NatsError::from((ErrorKind::ServerProtocolError, "Cluster down - Connections are temporarily suspended")));
             }
             self.circuit_breaker = None;
@@ -326,9 +325,9 @@ impl Client {
                 }
                 self.server_idx = (self.server_idx + 1) % servers_count;
             }
-            thread::sleep_ms(CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS);
+            thread::sleep(Duration::from_millis(CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS));
         }
-        self.circuit_breaker = Some(SteadyTime::now());
+        self.circuit_breaker = Some(Instant::now());
         Err(NatsError::from((ErrorKind::ServerProtocolError,
             "The entire cluster is down or unreachable")))
     }
