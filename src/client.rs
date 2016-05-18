@@ -8,7 +8,7 @@ use errors::ErrorKind::*;
 use self::rand::{thread_rng, Rng};
 use self::serde_json::de;
 use self::serde_json::value::Value;
-use self::url::{ParseError, ParseResult, SchemeType, Url, UrlParser};
+use self::url::{ParseError, SchemeType, Url, UrlParser};
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
@@ -461,7 +461,7 @@ fn nats_scheme_type_mapper(scheme: &str) -> SchemeType {
     }
 }
 
-fn parse_nats_uri(uri: &str) -> ParseResult<Url> {
+fn parse_nats_uri(uri: &str) -> Result<Url, ParseError> {
     let mut parser = UrlParser::new();
     parser.scheme_type_mapper(nats_scheme_type_mapper);
     match parser.parse(uri) {
