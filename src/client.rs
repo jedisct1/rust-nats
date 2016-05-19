@@ -8,7 +8,7 @@ use errors::ErrorKind::*;
 use self::rand::{thread_rng, Rng};
 use self::serde_json::de;
 use self::serde_json::value::Value;
-use self::url::{ParseError, SchemeType, Url, UrlParser};
+use self::url::Url;
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
@@ -95,15 +95,15 @@ impl Client {
         let mut servers_info = Vec::new();
         for uri in uris.to_string_vec() {
             let parsed = try!(parse_nats_uri(&uri));
-            let host = try!(parsed.serialize_host().ok_or((InvalidClientConfig, "Missing host name")));
-            let port = try!(parsed.port_or_default().ok_or((InvalidClientConfig, "Invalid port number")));
+            let host = try!(parsed.host_str().ok_or((InvalidClientConfig, "Missing host name"))).to_owned();
+            let port = parsed.port().unwrap_or(DEFAULT_PORT);
             let credentials = match (parsed.username(), parsed.password()) {
-                (None, None) | (Some(""), None) => None,
-                (Some(username), Some(password)) => Some(Credentials {
+                ("", None) => None,
+                ("", Some(_)) => return Err(NatsError::from((InvalidClientConfig, "Username can't be empty"))),
+                (_, None) => return Err(NatsError::from((InvalidClientConfig, "Password can't be empty"))),
+                (username, Some(password)) => Some(Credentials {
                     username: username.to_owned(), password: password.to_owned()
-                }),
-                (None, Some(_)) => return Err(NatsError::from((InvalidClientConfig, "Username can't be empty"))),
-                (Some(_), None) => return Err(NatsError::from((InvalidClientConfig, "Password can't be empty"))),
+                })
             };
             servers_info.push(ServerInfo {
                 host: host,
@@ -454,25 +454,12 @@ fn queue_check(queue: &str) -> Result<(), NatsError> {
     space_check(queue, "A queue name cannot contain spaces")
 }
 
-fn nats_scheme_type_mapper(scheme: &str) -> SchemeType {
-    match scheme {
-        URI_SCHEME => SchemeType::Relative(DEFAULT_PORT),
-        _ => SchemeType::NonRelative
-    }
-}
-
-fn parse_nats_uri(uri: &str) -> Result<Url, ParseError> {
-    let mut parser = UrlParser::new();
-    parser.scheme_type_mapper(nats_scheme_type_mapper);
-    match parser.parse(uri) {
-        Ok(res) => {
-            if res.scheme == URI_SCHEME {
-                Ok(res)
-            } else {
-                Err(ParseError::InvalidScheme)
-            }
-        },
-        e => e
+fn parse_nats_uri(uri: &str) -> Result<Url, NatsError> {
+    let url = try!(Url::parse(uri));
+    if url.scheme() != URI_SCHEME {
+        Err(NatsError::from((ErrorKind::InvalidSchemeError, "Unsupported scheme")))
+    } else {
+        Ok(url)
     }
 }
 

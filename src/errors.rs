@@ -12,6 +12,7 @@ pub enum ErrorKind {
     ClientProtocolError,
     InvalidClientConfig,
     IoError,
+    InvalidSchemeError,
     ServerProtocolError,
     TypeError
 }
