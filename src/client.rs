@@ -27,7 +27,7 @@ const RETRIES_MAX: u32 = 10;
 #[derive(Clone, Debug)]
 struct Credentials {
     username: String,
-    password: String
+    password: String,
 }
 
 #[derive(Clone, Debug)]
@@ -35,14 +35,14 @@ struct ServerInfo {
     host: String,
     port: u16,
     credentials: Option<Credentials>,
-    max_payload: usize
+    max_payload: usize,
 }
 
 #[derive(Debug)]
 struct ClientState {
     stream_writer: TcpStream,
     buf_reader: BufReader<TcpStream>,
-    max_payload: usize
+    max_payload: usize,
 }
 
 #[derive(Debug)]
@@ -54,14 +54,14 @@ pub struct Client {
     name: String,
     state: Option<ClientState>,
     circuit_breaker: Option<Instant>,
-    sid: u64
+    sid: u64,
 }
 
 #[derive(Serialize, Debug)]
 struct ConnectNoCredentials {
     verbose: bool,
     pedantic: bool,
-    name: String
+    name: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -70,12 +70,12 @@ struct ConnectWithCredentials {
     pedantic: bool,
     name: String,
     user: String,
-    pass: String
+    pass: String,
 }
 
 #[derive(Debug)]
 pub struct Channel {
-    pub sid: u64
+    pub sid: u64,
 }
 
 #[derive(Debug)]
@@ -83,11 +83,11 @@ pub struct Event {
     pub subject: String,
     pub channel: Channel,
     pub msg: Vec<u8>,
-    pub inbox: Option<String>
+    pub inbox: Option<String>,
 }
 
 pub struct Events<'t> {
-    client: &'t mut Client
+    client: &'t mut Client,
 }
 
 impl Client {
@@ -95,21 +95,29 @@ impl Client {
         let mut servers_info = Vec::new();
         for uri in uris.to_string_vec() {
             let parsed = try!(parse_nats_uri(&uri));
-            let host = try!(parsed.host_str().ok_or((InvalidClientConfig, "Missing host name"))).to_owned();
+            let host = try!(parsed.host_str().ok_or((InvalidClientConfig, "Missing host name")))
+                .to_owned();
             let port = parsed.port().unwrap_or(DEFAULT_PORT);
             let credentials = match (parsed.username(), parsed.password()) {
                 ("", None) => None,
-                ("", Some(_)) => return Err(NatsError::from((InvalidClientConfig, "Username can't be empty"))),
-                (_, None) => return Err(NatsError::from((InvalidClientConfig, "Password can't be empty"))),
-                (username, Some(password)) => Some(Credentials {
-                    username: username.to_owned(), password: password.to_owned()
-                })
+                ("", Some(_)) => {
+                    return Err(NatsError::from((InvalidClientConfig, "Username can't be empty")))
+                }
+                (_, None) => {
+                    return Err(NatsError::from((InvalidClientConfig, "Password can't be empty")))
+                }
+                (username, Some(password)) => {
+                    Some(Credentials {
+                        username: username.to_owned(),
+                        password: password.to_owned(),
+                    })
+                }
             };
             servers_info.push(ServerInfo {
                 host: host,
                 port: port,
                 credentials: credentials,
-                max_payload: 0
+                max_payload: 0,
             })
         }
         thread_rng().shuffle(&mut servers_info);
@@ -121,7 +129,7 @@ impl Client {
             name: DEFAULT_NAME.to_owned(),
             state: None,
             sid: 1,
-            circuit_breaker: None
+            circuit_breaker: None,
         })
     }
 
@@ -148,9 +156,7 @@ impl Client {
         let res = self.with_reconnect(|mut state| -> Result<Channel, NatsError> {
             try!(state.stream_writer.write_all(cmd.as_bytes()));
             try!(wait_ok(&mut state, verbose));
-            Ok(Channel {
-                sid: sid
-            })
+            Ok(Channel { sid: sid })
         });
         if res.is_ok() {
             self.sid = self.sid.wrapping_add(1);
@@ -200,16 +206,20 @@ impl Client {
             loop {
                 let mut line = String::new();
                 match buf_reader.read_line(&mut line) {
-                    Ok(line_len) if line_len < "PING\r\n".len() =>
-                        return Err(NatsError::from((ErrorKind::ServerProtocolError, "Incomplete server response"))),
+                    Ok(line_len) if line_len < "PING\r\n".len() => {
+                        return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                                    "Incomplete server response")))
+                    }
                     Err(e) => return Err(NatsError::from(e)),
-                    Ok(_) => { }
+                    Ok(_) => {}
                 };
                 if line.starts_with("MSG ") {
-                    return wait_read_msg(line, buf_reader)
+                    return wait_read_msg(line, buf_reader);
                 }
                 if line != "PING\r\n" {
-                    return Err(NatsError::from((ErrorKind::ServerProtocolError, "Server sent an unexpected response", line)));
+                    return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                                "Server sent an unexpected response",
+                                                line)));
                 }
                 let cmd = "PONG\r\n";
                 try!(state.stream_writer.write_all(cmd.as_bytes()));
@@ -218,9 +228,7 @@ impl Client {
     }
 
     pub fn events(&mut self) -> Events {
-        Events {
-            client: self
-        }
+        Events { client: self }
     }
 
     fn try_connect(&mut self) -> io::Result<()> {
@@ -230,28 +238,38 @@ impl Client {
         let mut buf_reader = BufReader::new(stream_reader);
         let mut line = String::new();
         match buf_reader.read_line(&mut line) {
-            Ok(line_len) if line_len < "INFO {}".len() =>
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF")),
+            Ok(line_len) if line_len < "INFO {}".len() => {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF"))
+            }
             Err(e) => return Err(e),
-            Ok(_) => { }
+            Ok(_) => {}
         };
         if line.starts_with("INFO ") == false {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Server INFO not received"));
         }
-        let obj: Value = try!(de::from_str(&line[5..]).
-            or(Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid JSON object sent by the server"))));
-        let obj = try!(obj.as_object().
-            ok_or(io::Error::new(io::ErrorKind::InvalidInput, "Invalid JSON object sent by the server")));
-        let max_payload = try!(try!(obj.get("max_payload").
-            ok_or(io::Error::new(io::ErrorKind::InvalidInput, "Server didn't send the max payload size"))).
-            as_u64().ok_or(io::Error::new(io::ErrorKind::InvalidInput, "Received payload size is not a u64")));
+        let obj: Value = try!(de::from_str(&line[5..])
+            .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
+                                   "Invalid JSON object sent by the server"))));
+        let obj = try!(obj.as_object().ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                                            "Invalid JSON object sent by the \
+                                                             server")));
+        let max_payload = try!(try!(obj.get("max_payload")
+                .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                      "Server didn't send the max payload size")))
+            .as_u64()
+            .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                  "Received payload size is not a u64")));
         if max_payload < 1 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid max payload size received"));
+            return Err(io::Error::new(io::ErrorKind::InvalidInput,
+                                      "Invalid max payload size received"));
         }
         server_info.max_payload = max_payload as usize;
-        let auth_required = try!(try!(obj.get("auth_required").
-            ok_or(io::Error::new(io::ErrorKind::InvalidInput, "Server didn't send auth_required"))).
-            as_boolean().ok_or(io::Error::new(io::ErrorKind::InvalidInput, "Received auth_required is not a boolean")));
+        let auth_required = try!(try!(obj.get("auth_required")
+                .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                      "Server didn't send auth_required")))
+            .as_boolean()
+            .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                  "Received auth_required is not a boolean")));
         let connect_json = match (auth_required, &server_info.credentials) {
             (true, &Some(ref credentials)) => {
                 let connect = ConnectWithCredentials {
@@ -259,15 +277,17 @@ impl Client {
                     pedantic: self.pedantic,
                     name: self.name.clone(),
                     user: credentials.username.clone(),
-                    pass: credentials.password.clone()
+                    pass: credentials.password.clone(),
                 };
-                try!(serde_json::to_string(&connect).or(Err(io::Error::new(io::ErrorKind::InvalidInput, "Received auth_required is not a boolean"))))
+                try!(serde_json::to_string(&connect)
+                    .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
+                                           "Received auth_required is not a boolean"))))
             }
             (false, _) | (_, &None) => {
                 let connect = ConnectNoCredentials {
                     verbose: self.verbose,
                     pedantic: self.pedantic,
-                    name: self.name.clone()
+                    name: self.name.clone(),
                 };
                 serde_json::to_string(&connect).unwrap()
             }
@@ -278,10 +298,11 @@ impl Client {
         if self.verbose {
             let mut line = String::new();
             match buf_reader.read_line(&mut line) {
-                Ok(line_len) if line_len != "+OK\r\n".len() =>
-                    return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF")),
+                Ok(line_len) if line_len != "+OK\r\n".len() => {
+                    return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF"))
+                }
                 Err(e) => return Err(e),
-                Ok(_) => { }
+                Ok(_) => {}
             };
             if line != "+OK\r\n" {
                 return Err(io::Error::new(io::ErrorKind::InvalidInput, "Server +OK not received"));
@@ -289,10 +310,11 @@ impl Client {
         }
         let mut line = String::new();
         match buf_reader.read_line(&mut line) {
-            Ok(line_len) if line_len != "PONG\r\n".len() =>
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF")),
+            Ok(line_len) if line_len != "PONG\r\n".len() => {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Unexpected EOF"))
+            }
             Err(e) => return Err(e),
-            Ok(_) => { }
+            Ok(_) => {}
         };
         if line != "PONG\r\n" {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Server PONG not received"));
@@ -300,7 +322,7 @@ impl Client {
         let state = ClientState {
             stream_writer: stream_writer,
             buf_reader: buf_reader,
-            max_payload: max_payload as usize
+            max_payload: max_payload as usize,
         };
         self.state = Some(state);
         Ok(())
@@ -308,8 +330,10 @@ impl Client {
 
     fn connect(&mut self) -> Result<(), NatsError> {
         if let Some(circuit_breaker) = self.circuit_breaker {
-            if circuit_breaker.elapsed() < Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS) {
-                return Err(NatsError::from((ErrorKind::ServerProtocolError, "Cluster down - Connections are temporarily suspended")));
+            if circuit_breaker.elapsed() <
+               Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS) {
+                return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                            "Cluster down - Connections are temporarily suspended")));
             }
             self.circuit_breaker = None;
         }
@@ -329,7 +353,7 @@ impl Client {
         }
         self.circuit_breaker = Some(Instant::now());
         Err(NatsError::from((ErrorKind::ServerProtocolError,
-            "The entire cluster is down or unreachable")))
+                             "The entire cluster is down or unreachable")))
     }
 
     fn reconnect(&mut self) -> Result<(), NatsError> {
@@ -341,20 +365,24 @@ impl Client {
 
     fn maybe_connect(&mut self) -> Result<(), NatsError> {
         if self.state.is_none() {
-            return self.connect()
+            return self.connect();
         }
         Ok(())
     }
 
-    fn with_reconnect<F, T>(&mut self, f: F) -> Result<T, NatsError> where F: Fn(&mut ClientState) -> Result<T, NatsError> {
+    fn with_reconnect<F, T>(&mut self, f: F) -> Result<T, NatsError>
+        where F: Fn(&mut ClientState) -> Result<T, NatsError>
+    {
         let mut res: Result<T, NatsError> = Err(NatsError::from((ErrorKind::IoError, "I/O error")));
         for _ in 0..RETRIES_MAX {
             let mut state = self.state.take().unwrap();
             res = match f(&mut state) {
-                e @ Err(_) => match self.reconnect() {
-                    Err(e) => return Err(e),
-                    Ok(_) => e
-                },
+                e @ Err(_) => {
+                    match self.reconnect() {
+                        Err(e) => return Err(e),
+                        Ok(_) => e,
+                    }
+                }
                 res @ Ok(_) => {
                     self.state = Some(state);
                     return res;
@@ -364,7 +392,11 @@ impl Client {
         res
     }
 
-    fn publish_with_optional_inbox(&mut self, subject: &str, msg: &[u8], inbox: Option<&str>) -> Result<(), NatsError> {
+    fn publish_with_optional_inbox(&mut self,
+                                   subject: &str,
+                                   msg: &[u8],
+                                   inbox: Option<&str>)
+                                   -> Result<(), NatsError> {
         try!(subject_check(subject));
         let msg_len = msg.len();
         let cmd = match inbox {
@@ -385,8 +417,10 @@ impl Client {
         self.with_reconnect(|mut state| -> Result<(), NatsError> {
             let max_payload = state.max_payload;
             if cmd.len() > max_payload {
-                return Err(NatsError::from((ErrorKind::ClientProtocolError, "Message too large",
-                    format!("Maximum payload size is {} bytes", max_payload))));
+                return Err(NatsError::from((ErrorKind::ClientProtocolError,
+                                            "Message too large",
+                                            format!("Maximum payload size is {} bytes",
+                                                    max_payload))));
             }
             try!(state.stream_writer.write_all(&cmd));
             try!(wait_ok(&mut state, verbose));
@@ -402,7 +436,7 @@ impl<'t> Iterator for Events<'t> {
         let mut client = &mut self.client;
         match client.wait() {
             Ok(event) => Some(event),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 }
@@ -413,13 +447,13 @@ pub trait ToStringVec {
 
 impl ToStringVec for String {
     fn to_string_vec(self) -> Vec<String> {
-        vec!(self)
+        vec![self]
     }
 }
 
 impl<'t> ToStringVec for &'t str {
     fn to_string_vec(self) -> Vec<String> {
-        vec!(self.to_owned())
+        vec![self.to_owned()]
     }
 }
 
@@ -472,7 +506,7 @@ fn read_exact<R: BufRead + ?Sized>(reader: &mut R, buf: &mut Vec<u8>) -> io::Res
             let buffer = match reader.fill_buf() {
                 Ok(buffer) => buffer,
                 Err(ref e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             };
             let used = cmp::min(buffer.len(), to_read);
             buf.extend_from_slice(&buffer[..used]);
@@ -491,36 +525,47 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     let mut buf_reader = &mut state.buf_reader;
     let mut line = String::new();
     match buf_reader.read_line(&mut line) {
-        Ok(line_len) if line_len < "OK\r\n".len() =>
-            return Err(NatsError::from((ErrorKind::ServerProtocolError, "Incomplete server response"))),
+        Ok(line_len) if line_len < "OK\r\n".len() => {
+            return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                        "Incomplete server response")))
+        }
         Err(e) => return Err(NatsError::from(e)),
-        Ok(_) => { }
+        Ok(_) => {}
     };
     match line.as_ref() {
-        "+OK\r\n" => { },
+        "+OK\r\n" => {}
         "PING\r\n" => {
             let pong = "PONG\r\n".as_bytes();
             try!(state.stream_writer.write_all(pong));
-        },
-        _ => return Err(NatsError::from((ErrorKind::ServerProtocolError,
-                        "Received unexpected response from the server", line)))
+        }
+        _ => {
+            return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                        "Received unexpected response from the server",
+                                        line)))
+        }
     }
     Ok(())
 }
 
 fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<Event, NatsError> {
     if line.len() < "MSG _ _ _\r\n".len() {
-        return Err(NatsError::from((ErrorKind::ServerProtocolError, "Incomplete server response", line.clone())));
+        return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                    "Incomplete server response",
+                                    line.clone())));
     }
     let line = line.trim_right();
     let mut parts = line[4..].split(' ');
-    let subject = try!(parts.next().
-        ok_or(NatsError::from((ErrorKind::ServerProtocolError, "Unsupported server response", line.to_owned()))));
-    let sid: u64 = try!(parts.next().
-        ok_or(NatsError::from((ErrorKind::ServerProtocolError, "Unsupported server response", line.to_owned())))).
-        parse().unwrap_or(0);
-    let inbox_or_len_s = try!(parts.next().
-        ok_or(NatsError::from((ErrorKind::ServerProtocolError, "Unsupported server response", line.to_owned()))));
+    let subject = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                           "Unsupported server response",
+                                                           line.to_owned()))));
+    let sid: u64 = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                            "Unsupported server response",
+                                                            line.to_owned()))))
+        .parse()
+        .unwrap_or(0);
+    let inbox_or_len_s = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                                  "Unsupported server response",
+                                                                  line.to_owned()))));
     let mut inbox: Option<String> = None;
     let len_s = match parts.next() {
         None => inbox_or_len_s,
@@ -529,30 +574,31 @@ fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<
             len_s
         }
     };
-    let len: usize = try!(len_s.parse().ok().
-        ok_or(NatsError::from((ErrorKind::ServerProtocolError, "Suspicous message length",
-        format!("{} (len: [{}])", line, len_s)))));
+    let len: usize =
+        try!(len_s.parse().ok().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                       "Suspicous message length",
+                                                       format!("{} (len: [{}])", line, len_s)))));
     let mut msg: Vec<u8> = vec![0; len];
     try!(read_exact(buf_reader, &mut msg));
     let mut crlf: Vec<u8> = vec![0; 2];
     try!(read_exact(buf_reader, &mut crlf));
     if crlf[0] != 0x0d || crlf[1] != 0x0a {
-        return Err(NatsError::from((ErrorKind::ServerProtocolError, "Missing CRLF after a message", line.to_owned())))
+        return Err(NatsError::from((ErrorKind::ServerProtocolError,
+                                    "Missing CRLF after a message",
+                                    line.to_owned())));
     }
     let event = Event {
         subject: subject.to_owned(),
-        channel: Channel {
-            sid: sid
-        },
+        channel: Channel { sid: sid },
         msg: msg,
-        inbox: inbox
+        inbox: inbox,
     };
     Ok(event)
 }
 
 #[test]
 fn client_test() {
-    let mut client = Client::new(vec!("nats://user:password@127.0.0.1")).unwrap();
+    let mut client = Client::new(vec!["nats://user:password@127.0.0.1"]).unwrap();
     client.set_synchronous(false);
     client.set_name("test");
     client.subscribe("chan", None).unwrap();
