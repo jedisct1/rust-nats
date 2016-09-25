@@ -333,7 +333,8 @@ impl Client {
             if circuit_breaker.elapsed() <
                Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS) {
                 return Err(NatsError::from((ErrorKind::ServerProtocolError,
-                                            "Cluster down - Connections are temporarily suspended")));
+                                            "Cluster down - Connections are temporarily \
+                                             suspended")));
             }
             self.circuit_breaker = None;
         }
@@ -563,9 +564,10 @@ fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<
                                                             line.to_owned()))))
         .parse()
         .unwrap_or(0);
-    let inbox_or_len_s = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
-                                                                  "Unsupported server response",
-                                                                  line.to_owned()))));
+    let inbox_or_len_s = try!(parts.next()
+        .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                "Unsupported server response",
+                                line.to_owned()))));
     let mut inbox: Option<String> = None;
     let len_s = match parts.next() {
         None => inbox_or_len_s,
