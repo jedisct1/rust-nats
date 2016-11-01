@@ -33,7 +33,7 @@ pub struct NatsError {
 impl Error for NatsError {
     fn description(&self) -> &str {
         match self.repr {
-            ErrorRepr::WithDescription(_, description) => description,
+            ErrorRepr::WithDescription(_, description) |
             ErrorRepr::WithDescriptionAndDetail(_, description, _) => description,
             ErrorRepr::IoError(ref e) => e.description(),
             ErrorRepr::UrlParseError(ref e) => e.description(),

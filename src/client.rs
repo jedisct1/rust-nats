@@ -266,7 +266,7 @@ impl Client {
             Err(e) => return Err(e),
             Ok(_) => {}
         };
-        if line.starts_with("INFO ") == false {
+        if !line.starts_with("INFO ") {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Server INFO not received"));
         }
         let obj: Value = try!(de::from_str(&line[5..])
@@ -542,7 +542,7 @@ fn read_exact<R: BufRead + ?Sized>(reader: &mut R, buf: &mut Vec<u8>) -> io::Res
 }
 
 fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
-    if verbose == false {
+    if !verbose {
         return Ok(());
     }
     let mut buf_reader = &mut state.buf_reader;
@@ -558,7 +558,7 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     match line.as_ref() {
         "+OK\r\n" => {}
         "PING\r\n" => {
-            let pong = "PONG\r\n".as_bytes();
+            let pong = b"PONG\r\n";
             try!(state.stream_writer.write_all(pong));
         }
         _ => {

@@ -14,3 +14,5 @@ rand = "~0.3"
 serde = "~0.8"
 serde_json = "~0.8"
 url = "~1.2"
+
+clippy = {version = "*", optional = true}

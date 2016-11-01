@@ -11,7 +11,7 @@ The crate is called `nats` and can be added as a dependency using Cargo:
 nats = "*"
 ```
 
-It was written for Rust-nightly, but support for Rust beta will be added later.
+Rust -stable, -beta and -nightly are supported.
 
 The library was designed to be robust. It doesn't use any usafe code, it never
 calls `panic!()` and failed commands are automatically retried on different
