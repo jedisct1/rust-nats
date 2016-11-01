@@ -57,20 +57,42 @@ pub struct Client {
     sid: u64,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 struct ConnectNoCredentials {
     verbose: bool,
     pedantic: bool,
     name: String,
 }
 
-#[derive(Serialize, Debug)]
+impl ConnectNoCredentials {
+    pub fn into_json(self) -> serde_json::Result<String> {
+        let mut map = serde_json::Map::new();
+        map.insert("verbose", Value::Bool(self.verbose));
+        map.insert("pedantic", Value::Bool(self.pedantic));
+        map.insert("name", Value::String(self.name));
+        serde_json::to_string(&map)
+    }
+}
+
+#[derive(Debug)]
 struct ConnectWithCredentials {
     verbose: bool,
     pedantic: bool,
     name: String,
     user: String,
     pass: String,
+}
+
+impl ConnectWithCredentials {
+    pub fn into_json(self) -> serde_json::Result<String> {
+        let mut map = serde_json::Map::new();
+        map.insert("verbose", Value::Bool(self.verbose));
+        map.insert("pedantic", Value::Bool(self.pedantic));
+        map.insert("name", Value::String(self.name));
+        map.insert("user", Value::String(self.user));
+        map.insert("pass", Value::String(self.pass));
+        serde_json::to_string(&map)
+    }
 }
 
 #[derive(Debug)]
@@ -267,7 +289,7 @@ impl Client {
         let auth_required = try!(try!(obj.get("auth_required")
                 .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
                                       "Server didn't send auth_required")))
-            .as_boolean()
+            .as_bool()
             .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
                                   "Received auth_required is not a boolean")));
         let connect_json = match (auth_required, &server_info.credentials) {
@@ -279,7 +301,7 @@ impl Client {
                     user: credentials.username.clone(),
                     pass: credentials.password.clone(),
                 };
-                try!(serde_json::to_string(&connect)
+                try!(connect.into_json()
                     .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
                                            "Received auth_required is not a boolean"))))
             }
@@ -289,7 +311,7 @@ impl Client {
                     pedantic: self.pedantic,
                     name: self.name.clone(),
                 };
-                serde_json::to_string(&connect).unwrap()
+                connect.into_json().unwrap()
             }
         };
         let connect_string = format!("CONNECT {}\nPING\n", connect_json);
