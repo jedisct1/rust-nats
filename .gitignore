@@ -1,6 +1,8 @@
 *.dSYM
 *~
+*.bk
 .rust
+.vscode
 Cargo.lock
 build
 target
