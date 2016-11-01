@@ -10,8 +10,8 @@ homepage = "https://github.com/jedisct1/rust-nats"
 repository = "https://github.com/jedisct1/rust-nats"
 
 [dependencies]
-rand = "~0.3.14"
-serde = "~0.7.5"
-serde_json = "~0.7.0"
-serde_macros = "~0.7.5"
-url = "~1.1.0"
+rand = "~0.3"
+serde = "~0.8"
+serde_json = "~0.8"
+serde_macros = "~0.8"
+url = "~1.2"
