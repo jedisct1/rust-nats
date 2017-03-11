@@ -236,7 +236,7 @@ impl Client {
                     Ok(_) => {}
                 };
                 if line.starts_with("MSG ") {
-                    return wait_read_msg(line, buf_reader);
+                    return wait_read_msg(&line, buf_reader);
                 }
                 if line != "PING\r\n" {
                     return Err(NatsError::from((ErrorKind::ServerProtocolError,
@@ -570,11 +570,11 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     Ok(())
 }
 
-fn wait_read_msg(line: String, buf_reader: &mut BufReader<TcpStream>) -> Result<Event, NatsError> {
+fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Event, NatsError> {
     if line.len() < "MSG _ _ _\r\n".len() {
         return Err(NatsError::from((ErrorKind::ServerProtocolError,
                                     "Incomplete server response",
-                                    line.clone())));
+                                    line.to_owned())));
     }
     let line = line.trim_right();
     let mut parts = line[4..].split(' ');
