@@ -626,16 +626,16 @@ fn client_test() {
     client.set_synchronous(false);
     client.set_name("test");
     client.subscribe("chan", None).unwrap();
-    client.publish("chan", "test".as_bytes()).unwrap();
+    client.publish("chan", b"test").unwrap();
     client.wait().unwrap();
     let s = client.subscribe("chan2", Some("queue")).unwrap();
     client.unsubscribe(s).unwrap();
-    client.make_request("chan", "test".as_bytes()).unwrap();
+    client.make_request("chan", b"test").unwrap();
     client.wait().unwrap();
     client.subscribe("chan.*", None).unwrap();
-    client.publish("chan", "test1".as_bytes()).unwrap();
-    client.publish("chan", "test2".as_bytes()).unwrap();
-    client.publish("chan", "test3".as_bytes()).unwrap();
-    client.publish("chan.last", "test4".as_bytes()).unwrap();
+    client.publish("chan", b"test1").unwrap();
+    client.publish("chan", b"test2").unwrap();
+    client.publish("chan", b"test3").unwrap();
+    client.publish("chan.last", b"test4").unwrap();
     client.events().find(|event| event.subject == "chan.last").unwrap();
 }
