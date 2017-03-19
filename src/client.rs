@@ -130,29 +130,29 @@ impl Client {
                 }
                 (username, Some(password)) => {
                     Some(Credentials {
-                        username: username.to_owned(),
-                        password: password.to_owned(),
-                    })
+                             username: username.to_owned(),
+                             password: password.to_owned(),
+                         })
                 }
             };
             servers_info.push(ServerInfo {
-                host: host,
-                port: port,
-                credentials: credentials,
-                max_payload: 0,
-            })
+                                  host: host,
+                                  port: port,
+                                  credentials: credentials,
+                                  max_payload: 0,
+                              })
         }
         thread_rng().shuffle(&mut servers_info);
         Ok(Client {
-            servers_info: servers_info,
-            server_idx: 0,
-            verbose: false,
-            pedantic: false,
-            name: DEFAULT_NAME.to_owned(),
-            state: None,
-            sid: 1,
-            circuit_breaker: None,
-        })
+               servers_info: servers_info,
+               server_idx: 0,
+               verbose: false,
+               pedantic: false,
+               name: DEFAULT_NAME.to_owned(),
+               state: None,
+               sid: 1,
+               circuit_breaker: None,
+           })
     }
 
     pub fn set_synchronous(&mut self, synchronous: bool) {
@@ -176,10 +176,10 @@ impl Client {
         let verbose = self.verbose;
         try!(self.maybe_connect());
         let res = self.with_reconnect(|mut state| -> Result<Channel, NatsError> {
-            try!(state.stream_writer.write_all(cmd.as_bytes()));
-            try!(wait_ok(&mut state, verbose));
-            Ok(Channel { sid: sid })
-        });
+                                          try!(state.stream_writer.write_all(cmd.as_bytes()));
+                                          try!(wait_ok(&mut state, verbose));
+                                          Ok(Channel { sid: sid })
+                                      });
         if res.is_ok() {
             self.sid = self.sid.wrapping_add(1);
         }
@@ -191,10 +191,10 @@ impl Client {
         let verbose = self.verbose;
         try!(self.maybe_connect());
         self.with_reconnect(|mut state| -> Result<(), NatsError> {
-            try!(state.stream_writer.write_all(cmd.as_bytes()));
-            try!(wait_ok(&mut state, verbose));
-            Ok(())
-        })
+                                try!(state.stream_writer.write_all(cmd.as_bytes()));
+                                try!(wait_ok(&mut state, verbose));
+                                Ok(())
+                            })
     }
 
     pub fn unsubscribe_after(&mut self, channel: Channel, max: u64) -> Result<(), NatsError> {
@@ -202,10 +202,10 @@ impl Client {
         let verbose = self.verbose;
         try!(self.maybe_connect());
         self.with_reconnect(|mut state| -> Result<(), NatsError> {
-            try!(state.stream_writer.write_all(cmd.as_bytes()));
-            try!(wait_ok(&mut state, verbose));
-            Ok(())
-        })
+                                try!(state.stream_writer.write_all(cmd.as_bytes()));
+                                try!(wait_ok(&mut state, verbose));
+                                Ok(())
+                            })
     }
 
     pub fn publish(&mut self, subject: &str, msg: &[u8]) -> Result<(), NatsError> {
@@ -584,12 +584,12 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
     let sid: u64 = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
                                                             "Unsupported server response",
                                                             line.to_owned()))))
-        .parse()
-        .unwrap_or(0);
+            .parse()
+            .unwrap_or(0);
     let inbox_or_len_s = try!(parts.next()
-        .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
-                                "Unsupported server response",
-                                line.to_owned()))));
+                                  .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                          "Unsupported server response",
+                                                          line.to_owned()))));
     let mut inbox: Option<String> = None;
     let len_s = match parts.next() {
         None => inbox_or_len_s,
