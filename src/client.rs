@@ -394,7 +394,8 @@ impl Client {
     }
 
     fn with_reconnect<F, T>(&mut self, f: F) -> Result<T, NatsError>
-        where F: Fn(&mut ClientState) -> Result<T, NatsError>
+    where
+        F: Fn(&mut ClientState) -> Result<T, NatsError>,
     {
         let mut res: Result<T, NatsError> = Err(NatsError::from((ErrorKind::IoError, "I/O error")));
         for _ in 0..RETRIES_MAX {
@@ -415,11 +416,12 @@ impl Client {
         res
     }
 
-    fn publish_with_optional_inbox(&mut self,
-                                   subject: &str,
-                                   msg: &[u8],
-                                   inbox: Option<&str>)
-                                   -> Result<(), NatsError> {
+    fn publish_with_optional_inbox(
+        &mut self,
+        subject: &str,
+        msg: &[u8],
+        inbox: Option<&str>,
+    ) -> Result<(), NatsError> {
         try!(subject_check(subject));
         let msg_len = msg.len();
         let cmd = match inbox {
