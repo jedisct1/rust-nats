@@ -117,8 +117,10 @@ impl Client {
         let mut servers_info = Vec::new();
         for uri in uris.to_string_vec() {
             let parsed = try!(parse_nats_uri(&uri));
-            let host = try!(parsed.host_str().ok_or((InvalidClientConfig, "Missing host name")))
-                .to_owned();
+            let host = try!(parsed
+                                .host_str()
+                                .ok_or((InvalidClientConfig, "Missing host name")))
+                    .to_owned();
             let port = parsed.port().unwrap_or(DEFAULT_PORT);
             let credentials = match (parsed.username(), parsed.password()) {
                 ("", None) => None,
@@ -272,8 +274,9 @@ impl Client {
         let obj: Value = try!(de::from_str(&line[5..])
             .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
                                    "Invalid JSON object sent by the server"))));
-        let obj = try!(obj.as_object().ok_or(io::Error::new(io::ErrorKind::InvalidInput,
-                                                            "Invalid JSON object sent by the \
+        let obj = try!(obj.as_object()
+                           .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
+                                                 "Invalid JSON object sent by the \
                                                              server")));
         let max_payload = try!(try!(obj.get("max_payload")
                 .ok_or(io::Error::new(io::ErrorKind::InvalidInput,
@@ -301,9 +304,10 @@ impl Client {
                     user: credentials.username.clone(),
                     pass: credentials.password.clone(),
                 };
-                try!(connect.into_json()
-                    .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
-                                           "Received auth_required is not a boolean"))))
+                try!(connect
+                         .into_json()
+                         .or(Err(io::Error::new(io::ErrorKind::InvalidInput,
+                                                "Received auth_required is not a boolean"))))
             }
             (false, _) | (_, &None) => {
                 let connect = ConnectNoCredentials {
@@ -580,15 +584,20 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
     }
     let line = line.trim_right();
     let mut parts = line[4..].split(' ');
-    let subject = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
-                                                           "Unsupported server response",
-                                                           line.to_owned()))));
-    let sid: u64 = try!(parts.next().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
-                                                            "Unsupported server response",
-                                                            line.to_owned()))))
+    let subject = try!(parts
+                           .next()
+                           .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                   "Unsupported server response",
+                                                   line.to_owned()))));
+    let sid: u64 = try!(parts
+                            .next()
+                            .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                                    "Unsupported server response",
+                                                    line.to_owned()))))
             .parse()
             .unwrap_or(0);
-    let inbox_or_len_s = try!(parts.next()
+    let inbox_or_len_s = try!(parts
+                                  .next()
                                   .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
                                                           "Unsupported server response",
                                                           line.to_owned()))));
@@ -601,9 +610,12 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
         }
     };
     let len: usize =
-        try!(len_s.parse().ok().ok_or(NatsError::from((ErrorKind::ServerProtocolError,
-                                                       "Suspicous message length",
-                                                       format!("{} (len: [{}])", line, len_s)))));
+        try!(len_s
+                 .parse()
+                 .ok()
+                 .ok_or(NatsError::from((ErrorKind::ServerProtocolError,
+                                         "Suspicous message length",
+                                         format!("{} (len: [{}])", line, len_s)))));
     let mut msg: Vec<u8> = vec![0; len];
     try!(read_exact(buf_reader, &mut msg));
     let mut crlf: Vec<u8> = vec![0; 2];
@@ -639,5 +651,8 @@ fn client_test() {
     client.publish("chan", b"test2").unwrap();
     client.publish("chan", b"test3").unwrap();
     client.publish("chan.last", b"test4").unwrap();
-    client.events().find(|event| event.subject == "chan.last").unwrap();
+    client
+        .events()
+        .find(|event| event.subject == "chan.last")
+        .unwrap();
 }
