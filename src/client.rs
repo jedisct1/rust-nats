@@ -2,13 +2,16 @@ extern crate rand;
 extern crate serde;
 extern crate serde_json;
 extern crate url;
+extern crate openssl;
 
 use errors::*;
 use errors::ErrorKind::*;
+use stream;
 use self::rand::{thread_rng, Rng};
 use self::serde_json::de;
 use self::serde_json::value::Value;
 use self::url::Url;
+use self::openssl::ssl::{SslConnectorBuilder, SslMethod};
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
@@ -36,12 +39,13 @@ struct ServerInfo {
     port: u16,
     credentials: Option<Credentials>,
     max_payload: usize,
+    tls_required: bool,
 }
 
 #[derive(Debug)]
 struct ClientState {
-    stream_writer: TcpStream,
-    buf_reader: BufReader<TcpStream>,
+    stream_writer: stream::Stream,
+    buf_reader: BufReader<stream::Stream>,
     max_payload: usize,
 }
 
@@ -117,11 +121,9 @@ impl Client {
         let mut servers_info = Vec::new();
         for uri in uris.to_string_vec() {
             let parsed = try!(parse_nats_uri(&uri));
-            let host = try!(
-                parsed
-                    .host_str()
-                    .ok_or((InvalidClientConfig, "Missing host name"))
-            ).to_owned();
+            let host = try!(parsed.host_str().ok_or(
+                (InvalidClientConfig, "Missing host name"),
+            )).to_owned();
             let port = parsed.port().unwrap_or(DEFAULT_PORT);
             let credentials = match (parsed.username(), parsed.password()) {
                 ("", None) => None,
@@ -145,6 +147,7 @@ impl Client {
                 port: port,
                 credentials: credentials,
                 max_payload: 0,
+                tls_required: false,
             })
         }
         thread_rng().shuffle(&mut servers_info);
@@ -264,9 +267,10 @@ impl Client {
 
     fn try_connect(&mut self) -> io::Result<()> {
         let server_info = &mut self.servers_info[self.server_idx];
-        let stream_reader = try!(TcpStream::connect(
-            (&server_info.host as &str, server_info.port),
-        ));
+        let stream_reader = try!(
+            TcpStream::connect((&server_info.host as &str, server_info.port))
+                .map(|s| stream::Stream::Tcp(s))
+        );
         let mut stream_writer = try!(stream_reader.try_clone());
         let mut buf_reader = BufReader::new(stream_reader);
         let mut line = String::new();
@@ -289,22 +293,21 @@ impl Client {
         let obj: Value = try!(de::from_str(&line[5..]).or(Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "Invalid JSON object sent by the server",
-        ),),));
+        ))));
         let obj = try!(obj.as_object().ok_or(io::Error::new(
             io::ErrorKind::InvalidInput,
             "Invalid JSON object sent by the \
              server",
-        ),));
+        )));
         let max_payload = try!(
-            try!(obj.get("max_payload",).ok_or(io::Error::new(
+            try!(obj.get("max_payload").ok_or(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server didn't send the max payload size",
-            ),))
-                .as_u64()
+            ))).as_u64()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received payload size is not a u64",
-                ),)
+                ))
         );
         if max_payload < 1 {
             return Err(io::Error::new(
@@ -313,16 +316,38 @@ impl Client {
             ));
         }
         server_info.max_payload = max_payload as usize;
+        server_info.tls_required = try!(
+            try!(obj.get("tls_required").ok_or(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Server didn't send tls_required",
+            ))).as_bool()
+                .ok_or(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Received tls_required is not a boolean",
+                ))
+        );
+        if server_info.tls_required {
+            // Wrap connection with TLS
+            let connector = try!(SslConnectorBuilder::new(SslMethod::tls()).map_err(|e| {
+                io::Error::new(io::ErrorKind::Other, e)
+            })).build();
+            stream_writer = try!(
+                connector
+                    .connect(&server_info.host, try!(stream_writer.as_tcp()))
+                    .map(|conn| stream::Stream::Ssl(stream::SslStream::new(conn)))
+                    .map_err(|e| io::Error::new(io::ErrorKind::ConnectionAborted, e))
+            );
+            buf_reader = BufReader::new(try!(stream_writer.try_clone()));
+        }
         let auth_required = try!(
-            try!(obj.get("auth_required",).ok_or(io::Error::new(
+            try!(obj.get("auth_required").ok_or(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server didn't send auth_required",
-            ),))
-                .as_bool()
+            ))).as_bool()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ),)
+                ))
         );
         let connect_json = match (auth_required, &server_info.credentials) {
             (true, &Some(ref credentials)) => {
@@ -336,7 +361,7 @@ impl Client {
                 try!(connect.into_json().or(Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ),),))
+                ))))
             }
             (false, _) | (_, &None) => {
                 let connect = ConnectNoCredentials {
@@ -453,10 +478,12 @@ impl Client {
         for _ in 0..RETRIES_MAX {
             let mut state = self.state.take().unwrap();
             res = match f(&mut state) {
-                e @ Err(_) => match self.reconnect() {
-                    Err(e) => return Err(e),
-                    Ok(_) => e,
-                },
+                e @ Err(_) => {
+                    match self.reconnect() {
+                        Err(e) => return Err(e),
+                        Ok(_) => e,
+                    }
+                }
                 res @ Ok(_) => {
                     self.state = Some(state);
                     return res;
@@ -629,7 +656,10 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     Ok(())
 }
 
-fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Event, NatsError> {
+fn wait_read_msg(
+    line: &str,
+    buf_reader: &mut BufReader<stream::Stream>,
+) -> Result<Event, NatsError> {
     if line.len() < "MSG _ _ _\r\n".len() {
         return Err(NatsError::from((
             ErrorKind::ServerProtocolError,
@@ -643,19 +673,18 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    ),),));
+    ))));
     let sid: u64 = try!(parts.next().ok_or(NatsError::from((
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    ),),))
-        .parse()
+    )))).parse()
         .unwrap_or(0);
     let inbox_or_len_s = try!(parts.next().ok_or(NatsError::from((
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    ),),));
+    ))));
     let mut inbox: Option<String> = None;
     let len_s = match parts.next() {
         None => inbox_or_len_s,
@@ -668,7 +697,7 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
         ErrorKind::ServerProtocolError,
         "Suspicous message length",
         format!("{} (len: [{}])", line, len_s),
-    ),),));
+    ))));
     let mut msg: Vec<u8> = vec![0; len];
     try!(read_exact(buf_reader, &mut msg));
     let mut crlf: Vec<u8> = vec![0; 2];
