@@ -65,30 +65,40 @@ impl fmt::Display for NatsError {
 
 impl From<Utf8Error> for NatsError {
     fn from(_: Utf8Error) -> NatsError {
-        NatsError { repr: ErrorRepr::WithDescription(ErrorKind::TypeError, "Invalid UTF-8") }
+        NatsError {
+            repr: ErrorRepr::WithDescription(ErrorKind::TypeError, "Invalid UTF-8"),
+        }
     }
 }
 
 impl From<(ErrorKind, &'static str)> for NatsError {
     fn from((kind, description): (ErrorKind, &'static str)) -> NatsError {
-        NatsError { repr: ErrorRepr::WithDescription(kind, description) }
+        NatsError {
+            repr: ErrorRepr::WithDescription(kind, description),
+        }
     }
 }
 
 impl From<(ErrorKind, &'static str, String)> for NatsError {
     fn from((kind, description, detail): (ErrorKind, &'static str, String)) -> NatsError {
-        NatsError { repr: ErrorRepr::WithDescriptionAndDetail(kind, description, detail) }
+        NatsError {
+            repr: ErrorRepr::WithDescriptionAndDetail(kind, description, detail),
+        }
     }
 }
 
 impl From<io::Error> for NatsError {
     fn from(e: io::Error) -> NatsError {
-        NatsError { repr: ErrorRepr::IoError(e) }
+        NatsError {
+            repr: ErrorRepr::IoError(e),
+        }
     }
 }
 
 impl From<url::ParseError> for NatsError {
     fn from(e: url::ParseError) -> NatsError {
-        NatsError { repr: ErrorRepr::UrlParseError(e) }
+        NatsError {
+            repr: ErrorRepr::UrlParseError(e),
+        }
     }
 }

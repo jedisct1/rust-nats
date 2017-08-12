@@ -1,7 +1,7 @@
 extern crate rand;
-extern crate url;
 extern crate serde;
 extern crate serde_json;
+extern crate url;
 
 use errors::*;
 use errors::ErrorKind::*;
@@ -135,12 +135,10 @@ impl Client {
                         (InvalidClientConfig, "Password can't be empty"),
                     ))
                 }
-                (username, Some(password)) => {
-                    Some(Credentials {
-                        username: username.to_owned(),
-                        password: password.to_owned(),
-                    })
-                }
+                (username, Some(password)) => Some(Credentials {
+                    username: username.to_owned(),
+                    password: password.to_owned(),
+                }),
             };
             servers_info.push(ServerInfo {
                 host: host,
@@ -291,21 +289,22 @@ impl Client {
         let obj: Value = try!(de::from_str(&line[5..]).or(Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "Invalid JSON object sent by the server",
-        ))));
+        ),),));
         let obj = try!(obj.as_object().ok_or(io::Error::new(
             io::ErrorKind::InvalidInput,
             "Invalid JSON object sent by the \
              server",
-        )));
+        ),));
         let max_payload = try!(
-            try!(obj.get("max_payload").ok_or(io::Error::new(
+            try!(obj.get("max_payload",).ok_or(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server didn't send the max payload size",
-            ))).as_u64()
+            ),))
+                .as_u64()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received payload size is not a u64",
-                ))
+                ),)
         );
         if max_payload < 1 {
             return Err(io::Error::new(
@@ -315,14 +314,15 @@ impl Client {
         }
         server_info.max_payload = max_payload as usize;
         let auth_required = try!(
-            try!(obj.get("auth_required").ok_or(io::Error::new(
+            try!(obj.get("auth_required",).ok_or(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server didn't send auth_required",
-            ))).as_bool()
+            ),))
+                .as_bool()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ))
+                ),)
         );
         let connect_json = match (auth_required, &server_info.credentials) {
             (true, &Some(ref credentials)) => {
@@ -336,7 +336,7 @@ impl Client {
                 try!(connect.into_json().or(Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ))))
+                ),),))
             }
             (false, _) | (_, &None) => {
                 let connect = ConnectNoCredentials {
@@ -453,12 +453,10 @@ impl Client {
         for _ in 0..RETRIES_MAX {
             let mut state = self.state.take().unwrap();
             res = match f(&mut state) {
-                e @ Err(_) => {
-                    match self.reconnect() {
-                        Err(e) => return Err(e),
-                        Ok(_) => e,
-                    }
-                }
+                e @ Err(_) => match self.reconnect() {
+                    Err(e) => return Err(e),
+                    Ok(_) => e,
+                },
                 res @ Ok(_) => {
                     self.state = Some(state);
                     return res;
@@ -645,18 +643,19 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    ))));
+    ),),));
     let sid: u64 = try!(parts.next().ok_or(NatsError::from((
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    )))).parse()
+    ),),))
+        .parse()
         .unwrap_or(0);
     let inbox_or_len_s = try!(parts.next().ok_or(NatsError::from((
         ErrorKind::ServerProtocolError,
         "Unsupported server response",
         line.to_owned(),
-    ))));
+    ),),));
     let mut inbox: Option<String> = None;
     let len_s = match parts.next() {
         None => inbox_or_len_s,
@@ -669,7 +668,7 @@ fn wait_read_msg(line: &str, buf_reader: &mut BufReader<TcpStream>) -> Result<Ev
         ErrorKind::ServerProtocolError,
         "Suspicous message length",
         format!("{} (len: [{}])", line, len_s),
-    ))));
+    ),),));
     let mut msg: Vec<u8> = vec![0; len];
     try!(read_exact(buf_reader, &mut msg));
     let mut crlf: Vec<u8> = vec![0; 2];
