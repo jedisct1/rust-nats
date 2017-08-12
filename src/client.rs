@@ -228,8 +228,8 @@ impl Client {
 
     pub fn wait(&mut self) -> Result<Event, NatsError> {
         try!(self.maybe_connect());
-        self.with_reconnect(|mut state| -> Result<Event, NatsError> {
-            let mut buf_reader = &mut state.buf_reader;
+        self.with_reconnect(|state| -> Result<Event, NatsError> {
+            let buf_reader = &mut state.buf_reader;
             loop {
                 let mut line = String::new();
                 match buf_reader.read_line(&mut line) {
@@ -509,7 +509,7 @@ impl<'t> Iterator for Events<'t> {
     type Item = Event;
 
     fn next(&mut self) -> Option<Event> {
-        let mut client = &mut self.client;
+        let client = &mut self.client;
         match client.wait() {
             Ok(event) => Some(event),
             Err(_) => None,
@@ -600,7 +600,7 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     if !verbose {
         return Ok(());
     }
-    let mut buf_reader = &mut state.buf_reader;
+    let buf_reader = &mut state.buf_reader;
     let mut line = String::new();
     match buf_reader.read_line(&mut line) {
         Ok(line_len) if line_len < "OK\r\n".len() => {
