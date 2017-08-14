@@ -123,3 +123,42 @@ for event in client.events() {
     ...
 }
 ```
+
+TLS
+===
+Build and set `TLSConfig` before connect:
+
+```rust
+use std::fs::File;
+use std::io::Read;
+use self::nats::openssl;  // use re-exported openssl crate
+
+// Load root certificate
+let mut file = File::open("./configs/certs/ca.pem").unwrap();
+let mut contents = vec![];
+file.read_to_end(&mut contents).unwrap();
+let cert = openssl::x509::X509::from_pem(&contents).unwrap();
+
+// Load client certificate
+let mut file = File::open("./configs/certs/client.crt").unwrap();
+let mut contents = vec![];
+file.read_to_end(&mut contents).unwrap();
+let client_cert = openssl::x509::X509::from_pem(&contents).unwrap();
+
+// Load client key
+let mut file = File::open("./configs/certs/client.key").unwrap();
+let mut contents = vec![];
+file.read_to_end(&mut contents).unwrap();
+let client_key = openssl::pkey::PKey::private_key_from_pem(&contents).unwrap();
+
+let mut builder = nats::TlsConfigBuilder::new().unwrap();
+// Set root certificate
+builder.add_root_certificate(cert).unwrap();
+// Set client certificate
+builder.add_client_certificate(client_cert, client_key).unwrap();
+let tls_config = builder.build();
+
+let mut client = nats::Client::new("nats://localhost:4222").unwrap();
+client.set_tls_config(tls_config);
+
+```
