@@ -32,6 +32,17 @@ pub struct NatsError {
     repr: ErrorRepr,
 }
 
+impl NatsError {
+    pub fn kind(&self) -> ErrorKind {
+        match self.repr {
+            ErrorRepr::WithDescription(kind, _) |
+            ErrorRepr::WithDescriptionAndDetail(kind, _, _) => kind,
+            ErrorRepr::IoError(_) => ErrorKind::IoError,
+            ErrorRepr::UrlParseError(_) => ErrorKind::InvalidSchemeError,
+        }
+    }
+}
+
 impl Error for NatsError {
     fn description(&self) -> &str {
         match self.repr {

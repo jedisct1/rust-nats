@@ -460,7 +460,11 @@ impl Client {
         let servers_count = self.servers_info.len();
         for _ in 0..CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING {
             for _ in 0..servers_count {
-                if self.try_connect().is_ok() {
+                let result = self.try_connect();
+                if let Err(true) = result.as_ref().map_err(|e| e.kind() == TlsError) {
+                    return result;
+                }
+                if result.is_ok() {
                     if self.state.is_none() {
                         panic!("Inconsistent state");
                     }
