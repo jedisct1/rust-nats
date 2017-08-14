@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 extern crate url;
+extern crate openssl;
 
 use std::fmt;
 use std::error::Error;
@@ -15,6 +16,7 @@ pub enum ErrorKind {
     InvalidSchemeError,
     ServerProtocolError,
     TypeError,
+    TlsError,
 }
 
 #[derive(Debug)]
@@ -91,6 +93,18 @@ impl From<io::Error> for NatsError {
     fn from(e: io::Error) -> NatsError {
         NatsError {
             repr: ErrorRepr::IoError(e),
+        }
+    }
+}
+
+impl From<openssl::error::ErrorStack> for NatsError {
+    fn from(e: openssl::error::ErrorStack) -> NatsError {
+        NatsError {
+            repr: ErrorRepr::WithDescriptionAndDetail(
+                ErrorKind::TlsError,
+                "",
+                e.description().to_owned(),
+            ),
         }
     }
 }

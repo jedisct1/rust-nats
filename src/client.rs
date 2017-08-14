@@ -7,11 +7,12 @@ extern crate openssl;
 use errors::*;
 use errors::ErrorKind::*;
 use stream;
+use tls_config::TlsConfig;
 use self::rand::{thread_rng, Rng};
 use self::serde_json::de;
 use self::serde_json::value::Value;
 use self::url::Url;
-use self::openssl::ssl::{SslConnectorBuilder, SslMethod};
+use self::openssl::ssl::{SslConnectorBuilder, SslConnector, SslMethod};
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
@@ -59,6 +60,7 @@ pub struct Client {
     state: Option<ClientState>,
     circuit_breaker: Option<Instant>,
     sid: u64,
+    tls_config: Option<TlsConfig>,
 }
 
 #[derive(Debug)]
@@ -160,6 +162,7 @@ impl Client {
             state: None,
             sid: 1,
             circuit_breaker: None,
+            tls_config: None,
         })
     }
 
@@ -169,6 +172,10 @@ impl Client {
 
     pub fn set_name(&mut self, name: &str) {
         self.name = name.to_owned();
+    }
+
+    pub fn set_tls_config(&mut self, config: TlsConfig) {
+        self.tls_config = Some(config);
     }
 
     pub fn subscribe(&mut self, subject: &str, queue: Option<&str>) -> Result<Channel, NatsError> {
@@ -328,9 +335,10 @@ impl Client {
         );
         if server_info.tls_required {
             // Wrap connection with TLS
-            let connector = try!(SslConnectorBuilder::new(SslMethod::tls()).map_err(|e| {
-                io::Error::new(io::ErrorKind::Other, e)
-            })).build();
+            let connector = self.tls_config.as_ref().map_or(
+                try!(default_tls_connector()),
+                |c| c.clone().as_connector(),
+            );
             stream_writer = try!(
                 connector
                     .connect(&server_info.host, try!(stream_writer.as_tcp()))
@@ -716,6 +724,14 @@ fn wait_read_msg(
         inbox: inbox,
     };
     Ok(event)
+}
+
+fn default_tls_connector() -> Result<SslConnector, io::Error> {
+    Ok(
+        try!(SslConnectorBuilder::new(SslMethod::tls()).map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, e)
+        })).build(),
+    )
 }
 
 #[test]
