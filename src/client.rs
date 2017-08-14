@@ -16,6 +16,7 @@ use self::openssl::ssl::{SslConnectorBuilder, SslConnector, SslMethod};
 use std::cmp;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
+use std::error::Error;
 use std::net::TcpStream;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -272,7 +273,7 @@ impl Client {
         Events { client: self }
     }
 
-    fn try_connect(&mut self) -> io::Result<()> {
+    fn try_connect(&mut self) -> Result<(), NatsError> {
         let server_info = &mut self.servers_info[self.server_idx];
         let stream_reader = try!(
             TcpStream::connect((&server_info.host as &str, server_info.port))
@@ -283,51 +284,57 @@ impl Client {
         let mut line = String::new();
         match buf_reader.read_line(&mut line) {
             Ok(line_len) if line_len < "INFO {}".len() => {
-                return Err(io::Error::new(
+                return Err(NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Unexpected EOF",
-                ))
+                )))
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(NatsError::from(e)),
             Ok(_) => {}
         };
         if !line.starts_with("INFO ") {
-            return Err(io::Error::new(
+            return Err(NatsError::from(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server INFO not received",
-            ));
+            )));
         }
-        let obj: Value = try!(de::from_str(&line[5..]).or(Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "Invalid JSON object sent by the server",
-        ))));
-        let obj = try!(obj.as_object().ok_or(io::Error::new(
+        let obj: Value = try!(de::from_str(&line[5..]).or(
+            Err(NatsError::from(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Invalid JSON object sent by the server",
+            ))),
+        ));
+        let obj = try!(obj.as_object().ok_or(NatsError::from(io::Error::new(
             io::ErrorKind::InvalidInput,
             "Invalid JSON object sent by the \
              server",
-        )));
+        ))));
         let max_payload = try!(
-            try!(obj.get("max_payload").ok_or(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Server didn't send the max payload size",
-            ))).as_u64()
+            try!(obj.get("max_payload").ok_or(
+                NatsError::from(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Server didn't send the max payload size",
+                )),
+            )).as_u64()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received payload size is not a u64",
                 ))
         );
         if max_payload < 1 {
-            return Err(io::Error::new(
+            return Err(NatsError::from(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Invalid max payload size received",
-            ));
+            )));
         }
         server_info.max_payload = max_payload as usize;
         server_info.tls_required = try!(
-            try!(obj.get("tls_required").ok_or(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Server didn't send tls_required",
-            ))).as_bool()
+            try!(obj.get("tls_required").ok_or(
+                NatsError::from(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Server didn't send tls_required",
+                )),
+            )).as_bool()
                 .ok_or(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received tls_required is not a boolean",
@@ -343,19 +350,27 @@ impl Client {
                 connector
                     .connect(&server_info.host, try!(stream_writer.as_tcp()))
                     .map(|conn| stream::Stream::Ssl(stream::SslStream::new(conn)))
-                    .map_err(|e| io::Error::new(io::ErrorKind::ConnectionAborted, e))
+                    .map_err(|e| {
+                        NatsError::from((
+                            TlsError,
+                            "Failed to establish TLS connection",
+                            e.description().to_owned(),
+                        ))
+                    })
             );
             buf_reader = BufReader::new(try!(stream_writer.try_clone()));
         }
         let auth_required = try!(
-            try!(obj.get("auth_required").ok_or(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "Server didn't send auth_required",
-            ))).as_bool()
-                .ok_or(io::Error::new(
+            try!(obj.get("auth_required").ok_or(
+                NatsError::from(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Server didn't send auth_required",
+                )),
+            )).as_bool()
+                .ok_or(NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ))
+                )))
         );
         let connect_json = match (auth_required, &server_info.credentials) {
             (true, &Some(ref credentials)) => {
@@ -366,10 +381,10 @@ impl Client {
                     user: credentials.username.clone(),
                     pass: credentials.password.clone(),
                 };
-                try!(connect.into_json().or(Err(io::Error::new(
+                try!(connect.into_json().or(Err(NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Received auth_required is not a boolean",
-                ))))
+                )))))
             }
             (false, _) | (_, &None) => {
                 let connect = ConnectNoCredentials {
@@ -387,37 +402,37 @@ impl Client {
             let mut line = String::new();
             match buf_reader.read_line(&mut line) {
                 Ok(line_len) if line_len != "+OK\r\n".len() => {
-                    return Err(io::Error::new(
+                    return Err(NatsError::from(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "Unexpected EOF",
-                    ))
+                    )))
                 }
-                Err(e) => return Err(e),
+                Err(e) => return Err(NatsError::from(e)),
                 Ok(_) => {}
             };
             if line != "+OK\r\n" {
-                return Err(io::Error::new(
+                return Err(NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Server +OK not received",
-                ));
+                )));
             }
         }
         let mut line = String::new();
         match buf_reader.read_line(&mut line) {
             Ok(line_len) if line_len != "PONG\r\n".len() => {
-                return Err(io::Error::new(
+                return Err(NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Unexpected EOF",
-                ))
+                )))
             }
-            Err(e) => return Err(e),
+            Err(e) => return Err(NatsError::from(e)),
             Ok(_) => {}
         };
         if line != "PONG\r\n" {
-            return Err(io::Error::new(
+            return Err(NatsError::from(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Server PONG not received",
-            ));
+            )));
         }
         let state = ClientState {
             stream_writer: stream_writer,
@@ -726,12 +741,8 @@ fn wait_read_msg(
     Ok(event)
 }
 
-fn default_tls_connector() -> Result<SslConnector, io::Error> {
-    Ok(
-        try!(SslConnectorBuilder::new(SslMethod::tls()).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, e)
-        })).build(),
-    )
+fn default_tls_connector() -> Result<SslConnector, NatsError> {
+    Ok(try!(SslConnectorBuilder::new(SslMethod::tls())).build())
 }
 
 #[test]
