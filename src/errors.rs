@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-extern crate url;
 extern crate openssl;
+extern crate url;
 
 use std::fmt;
 use std::error::Error;
@@ -66,8 +66,8 @@ impl fmt::Display for NatsError {
         match self.repr {
             ErrorRepr::WithDescription(_, description) => description.fmt(f),
             ErrorRepr::WithDescriptionAndDetail(_, description, ref detail) => {
-                try!(description.fmt(f));
-                try!(f.write_str(": "));
+                description.fmt(f)?;
+                f.write_str(": ")?;
                 detail.fmt(f)
             }
             ErrorRepr::IoError(ref e) => e.fmt(f),

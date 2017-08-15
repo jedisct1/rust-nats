@@ -5,7 +5,7 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use self::openssl::ssl;
 
-use self::Stream::{Tcp, Ssl};
+use self::Stream::{Ssl, Tcp};
 
 #[derive(Debug)]
 pub enum Stream {
@@ -16,7 +16,7 @@ pub enum Stream {
 impl Stream {
     pub fn try_clone(&self) -> io::Result<Stream> {
         match *self {
-            Tcp(ref s) => Ok(Tcp(try!(s.try_clone()))),
+            Tcp(ref s) => Ok(Tcp(s.try_clone()?)),
             Ssl(ref s) => Ok(Ssl(s.clone())),
         }
     }
