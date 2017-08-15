@@ -74,9 +74,9 @@ struct ConnectNoCredentials {
 impl ConnectNoCredentials {
     pub fn into_json(self) -> serde_json::Result<String> {
         let mut map = serde_json::Map::new();
-        map.insert("verbose", Value::Bool(self.verbose));
-        map.insert("pedantic", Value::Bool(self.pedantic));
-        map.insert("name", Value::String(self.name));
+        map.insert("verbose".to_owned(), Value::Bool(self.verbose));
+        map.insert("pedantic".to_owned(), Value::Bool(self.pedantic));
+        map.insert("name".to_owned(), Value::String(self.name));
         serde_json::to_string(&map)
     }
 }
@@ -93,11 +93,11 @@ struct ConnectWithCredentials {
 impl ConnectWithCredentials {
     pub fn into_json(self) -> serde_json::Result<String> {
         let mut map = serde_json::Map::new();
-        map.insert("verbose", Value::Bool(self.verbose));
-        map.insert("pedantic", Value::Bool(self.pedantic));
-        map.insert("name", Value::String(self.name));
-        map.insert("user", Value::String(self.user));
-        map.insert("pass", Value::String(self.pass));
+        map.insert("verbose".to_owned(), Value::Bool(self.verbose));
+        map.insert("pedantic".to_owned(), Value::Bool(self.pedantic));
+        map.insert("name".to_owned(), Value::String(self.name));
+        map.insert("user".to_owned(), Value::String(self.user));
+        map.insert("pass".to_owned(), Value::String(self.pass));
         serde_json::to_string(&map)
     }
 }
