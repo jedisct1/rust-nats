@@ -349,7 +349,7 @@ impl Client {
             // Wrap connection with TLS
             let connector = self.tls_config
                 .as_ref()
-                .map_or(default_tls_connector()?, |c| c.clone().as_connector());
+                .map_or(default_tls_connector()?, |c| c.clone().into_connector());
             stream_writer = connector
                 .connect(&server_info.host, stream_writer.as_tcp()?)
                 .map(|conn| stream::Stream::Ssl(stream::SslStream::new(conn)))

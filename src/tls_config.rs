@@ -43,7 +43,7 @@ impl TlsConfigBuilder {
 }
 
 impl TlsConfig {
-    pub fn as_connector(self) -> SslConnector {
+    pub fn into_connector(self) -> SslConnector {
         self.0
     }
 }
