@@ -451,8 +451,8 @@ impl Client {
 
     fn connect(&mut self) -> Result<(), NatsError> {
         if let Some(circuit_breaker) = self.circuit_breaker {
-            if circuit_breaker.elapsed() <
-                Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS)
+            if circuit_breaker.elapsed()
+                < Duration::from_millis(CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS)
             {
                 return Err(NatsError::from((
                     ErrorKind::ServerProtocolError,
