@@ -20,6 +20,7 @@ use std::error::Error;
 use std::net::TcpStream;
 use std::thread;
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
@@ -44,6 +45,12 @@ struct ServerInfo {
     tls_required: bool,
 }
 
+#[derive(Clone, Debug)]
+struct Subscription {
+    subject: String,
+    queue: Option<String>,
+}
+
 #[derive(Debug)]
 struct ClientState {
     stream_writer: stream::Stream,
@@ -62,6 +69,7 @@ pub struct Client {
     circuit_breaker: Option<Instant>,
     sid: u64,
     tls_config: Option<TlsConfig>,
+    subscriptions: HashMap<u64, Subscription>,
 }
 
 #[derive(Debug)]
@@ -167,6 +175,7 @@ impl Client {
             sid: 1,
             circuit_breaker: None,
             tls_config: None,
+            subscriptions: HashMap::new(),
         })
     }
 
@@ -185,29 +194,39 @@ impl Client {
     pub fn subscribe(&mut self, subject: &str, queue: Option<&str>) -> Result<Channel, NatsError> {
         subject_check(subject)?;
         let sid = self.sid;
-        let cmd = match queue {
-            None => format!("SUB {} {}\r\n", subject, sid),
-            Some(queue) => {
-                queue_check(queue)?;
-                format!("SUB {} {} {}\r\n", subject, queue, sid)
-            }
+        if let Some(queue) = queue {
+            queue_check(queue)?;
+        }
+        self.maybe_connect()?;
+        let sub = Subscription {
+            subject: subject.to_owned(),
+            queue: queue.map(|q| q.to_owned()),
+        };
+        let res = self.subscribe_with_sid(sid, &sub);
+        if res.is_ok() {
+            self.sid = self.sid.wrapping_add(1);
+            self.subscriptions.insert(sid, sub);
+        }
+        res
+    }
+
+    fn subscribe_with_sid(&mut self, sid: u64, sub: &Subscription) -> Result<Channel, NatsError> {
+        let cmd = match sub.queue {
+            None => format!("SUB {} {}\r\n", sub.subject, sid),
+            Some(ref queue) => format!("SUB {} {} {}\r\n", sub.subject, queue, sid),
         };
         let verbose = self.verbose;
-        self.maybe_connect()?;
-        let res = self.with_reconnect(|mut state| -> Result<Channel, NatsError> {
+        self.with_reconnect(|mut state| -> Result<Channel, NatsError> {
             state.stream_writer.write_all(cmd.as_bytes())?;
             wait_ok(&mut state, verbose)?;
             Ok(Channel { sid: sid })
-        });
-        if res.is_ok() {
-            self.sid = self.sid.wrapping_add(1);
-        }
-        res
+        })
     }
 
     pub fn unsubscribe(&mut self, channel: Channel) -> Result<(), NatsError> {
         let cmd = format!("UNSUB {}\r\n", channel.sid);
         let verbose = self.verbose;
+        self.subscriptions.remove(&channel.sid);
         self.maybe_connect()?;
         self.with_reconnect(|mut state| -> Result<(), NatsError> {
             state.stream_writer.write_all(cmd.as_bytes())?;
@@ -219,6 +238,7 @@ impl Client {
     pub fn unsubscribe_after(&mut self, channel: Channel, max: u64) -> Result<(), NatsError> {
         let cmd = format!("UNSUB {} {}\r\n", channel.sid, max);
         let verbose = self.verbose;
+        self.subscriptions.remove(&channel.sid);
         self.maybe_connect()?;
         self.with_reconnect(|mut state| -> Result<(), NatsError> {
             state.stream_writer.write_all(cmd.as_bytes())?;
@@ -513,10 +533,19 @@ impl Client {
         for _ in 0..RETRIES_MAX {
             let mut state = self.state.take().unwrap();
             res = match f(&mut state) {
-                e @ Err(_) => match self.reconnect() {
-                    Err(e) => return Err(e),
-                    Ok(_) => e,
-                },
+                e @ Err(_) => {
+                    if let Err(e) = self.reconnect() {
+                        return Err(e);
+                    };
+                    if let Err(e) = self.restore_subscriptions() {
+                        return Err(NatsError::from((
+                            ClientProtocolError,
+                            "Failed to restore subscriptions",
+                            e.description().to_owned(),
+                        )));
+                    }
+                    e
+                }
                 res @ Ok(_) => {
                     self.state = Some(state);
                     return res;
@@ -562,6 +591,13 @@ impl Client {
             wait_ok(&mut state, verbose)?;
             Ok(())
         })
+    }
+
+    fn restore_subscriptions(&mut self) -> Result<(), NatsError> {
+        for (sid, sub) in self.subscriptions.clone() {
+            self.subscribe_with_sid(sid, &sub)?;
+        }
+        Ok(())
     }
 }
 
