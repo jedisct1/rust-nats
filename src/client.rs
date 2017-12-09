@@ -132,14 +132,16 @@ impl Client {
             let credentials = match (parsed.username(), parsed.password()) {
                 ("", None) => None,
                 ("", Some(_)) => {
-                    return Err(NatsError::from(
-                        (InvalidClientConfig, "Username can't be empty"),
-                    ))
+                    return Err(NatsError::from((
+                        InvalidClientConfig,
+                        "Username can't be empty",
+                    )))
                 }
                 (_, None) => {
-                    return Err(NatsError::from(
-                        (InvalidClientConfig, "Password can't be empty"),
-                    ))
+                    return Err(NatsError::from((
+                        InvalidClientConfig,
+                        "Password can't be empty",
+                    )))
                 }
                 (username, Some(password)) => Some(Credentials {
                     username: username.to_owned(),
@@ -625,9 +627,10 @@ fn queue_check(queue: &str) -> Result<(), NatsError> {
 fn parse_nats_uri(uri: &str) -> Result<Url, NatsError> {
     let url = Url::parse(uri)?;
     if url.scheme() != URI_SCHEME {
-        Err(NatsError::from(
-            (ErrorKind::InvalidSchemeError, "Unsupported scheme"),
-        ))
+        Err(NatsError::from((
+            ErrorKind::InvalidSchemeError,
+            "Unsupported scheme",
+        )))
     } else {
         Ok(url)
     }

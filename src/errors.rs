@@ -35,8 +35,8 @@ pub struct NatsError {
 impl NatsError {
     pub fn kind(&self) -> ErrorKind {
         match self.repr {
-            ErrorRepr::WithDescription(kind, _) |
-            ErrorRepr::WithDescriptionAndDetail(kind, _, _) => kind,
+            ErrorRepr::WithDescription(kind, _)
+            | ErrorRepr::WithDescriptionAndDetail(kind, _, _) => kind,
             ErrorRepr::IoError(_) => ErrorKind::IoError,
             ErrorRepr::UrlParseError(_) => ErrorKind::InvalidSchemeError,
         }
@@ -46,8 +46,8 @@ impl NatsError {
 impl Error for NatsError {
     fn description(&self) -> &str {
         match self.repr {
-            ErrorRepr::WithDescription(_, description) |
-            ErrorRepr::WithDescriptionAndDetail(_, description, _) => description,
+            ErrorRepr::WithDescription(_, description)
+            | ErrorRepr::WithDescriptionAndDetail(_, description, _) => description,
             ErrorRepr::IoError(ref e) => e.description(),
             ErrorRepr::UrlParseError(ref e) => e.description(),
         }

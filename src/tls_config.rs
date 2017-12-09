@@ -13,9 +13,9 @@ pub struct TlsConfigBuilder(SslConnectorBuilder);
 
 impl TlsConfigBuilder {
     pub fn new() -> Result<TlsConfigBuilder, NatsError> {
-        Ok(TlsConfigBuilder(
-            SslConnectorBuilder::new(SslMethod::tls())?,
-        ))
+        Ok(TlsConfigBuilder(SslConnectorBuilder::new(
+            SslMethod::tls(),
+        )?))
     }
 
     pub fn add_root_certificate(&mut self, cert: X509) -> Result<&mut Self, NatsError> {
