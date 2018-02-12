@@ -1,9 +1,9 @@
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 
+pub extern crate openssl;
 extern crate serde;
 extern crate serde_json;
-pub extern crate openssl;
 
 pub use client::*;
 pub use errors::*;

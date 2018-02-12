@@ -15,7 +15,7 @@ travis-ci = { repository = "jedisct1/rust-nats" }
 appveyor = { repository = "jedisct1/rust-nats" }
 
 [dependencies]
-rand = "~0.3"
+rand = "~0.4"
 serde = "~1.0"
 serde_json = "~1.0"
 url = "~1.6"

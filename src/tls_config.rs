@@ -19,7 +19,7 @@ impl TlsConfigBuilder {
     }
 
     pub fn add_root_certificate(&mut self, cert: X509) -> Result<&mut Self, NatsError> {
-        self.0.builder_mut().cert_store_mut().add_cert(cert)?;
+        self.0.cert_store_mut().add_cert(cert)?;
         Ok(self)
     }
 
@@ -29,7 +29,7 @@ impl TlsConfigBuilder {
         key: PKey,
     ) -> Result<&mut Self, NatsError> {
         {
-            let ctx = self.0.builder_mut();
+            let ctx = &mut self.0;
             ctx.set_certificate(&cert)?;
             ctx.set_private_key(&key)?;
             ctx.check_private_key()?;
