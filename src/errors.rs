@@ -3,8 +3,8 @@
 extern crate openssl;
 extern crate url;
 
-use std::fmt;
 use std::error::Error;
+use std::fmt;
 use std::io;
 use std::str::Utf8Error;
 

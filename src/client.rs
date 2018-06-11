@@ -4,22 +4,22 @@ extern crate serde;
 extern crate serde_json;
 extern crate url;
 
-use errors::{*, ErrorKind::*};
-use stream;
-use tls_config::TlsConfig;
-use self::rand::{thread_rng, Rng, distributions::Alphanumeric};
+use self::openssl::ssl::{SslConnector, SslMethod};
+use self::rand::{distributions::Alphanumeric, thread_rng, Rng};
 use self::serde_json::{de, value::Value};
 use self::url::Url;
-use self::openssl::ssl::{SslConnector, SslMethod};
+use errors::{ErrorKind::*, *};
 use std::{
     cmp,
-    io::{self, BufRead, BufReader, Write},
+    collections::HashMap,
     error::Error,
+    io::{self, BufRead, BufReader, Write},
     net::TcpStream,
     thread,
     time::{Duration, Instant},
-    collections::HashMap
 };
+use stream;
+use tls_config::TlsConfig;
 
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
@@ -331,7 +331,8 @@ impl Client {
                  server",
             ))
         })?;
-        let max_payload = obj.get("max_payload")
+        let max_payload = obj
+            .get("max_payload")
             .ok_or_else(|| {
                 NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -352,7 +353,8 @@ impl Client {
             )));
         }
         server_info.max_payload = max_payload as usize;
-        server_info.tls_required = obj.get("tls_required")
+        server_info.tls_required = obj
+            .get("tls_required")
             .ok_or_else(|| {
                 NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -368,7 +370,8 @@ impl Client {
             })?;
         if server_info.tls_required {
             // Wrap connection with TLS
-            let connector = self.tls_config
+            let connector = self
+                .tls_config
                 .as_ref()
                 .map_or(default_tls_connector()?, |c| c.clone().into_connector());
             stream_writer = connector
@@ -383,7 +386,8 @@ impl Client {
                 })?;
             buf_reader = BufReader::new(stream_writer.try_clone()?);
         }
-        let auth_required = obj.get("auth_required")
+        let auth_required = obj
+            .get("auth_required")
             .ok_or_else(|| {
                 NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
