@@ -4,23 +4,22 @@ extern crate serde;
 extern crate serde_json;
 extern crate url;
 
-use errors::*;
-use errors::ErrorKind::*;
+use errors::{*, ErrorKind::*};
 use stream;
 use tls_config::TlsConfig;
-use self::rand::{thread_rng, Rng};
-use self::serde_json::de;
-use self::serde_json::value::Value;
+use self::rand::{thread_rng, Rng, distributions::Alphanumeric};
+use self::serde_json::{de, value::Value};
 use self::url::Url;
-use self::openssl::ssl::{SslConnector, SslConnectorBuilder, SslMethod};
-use std::cmp;
-use std::io;
-use std::io::{BufRead, BufReader, Write};
-use std::error::Error;
-use std::net::TcpStream;
-use std::thread;
-use std::time::{Duration, Instant};
-use std::collections::HashMap;
+use self::openssl::ssl::{SslConnector, SslMethod};
+use std::{
+    cmp,
+    io::{self, BufRead, BufReader, Write},
+    error::Error,
+    net::TcpStream,
+    thread,
+    time::{Duration, Instant},
+    collections::HashMap
+};
 
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
@@ -253,7 +252,7 @@ impl Client {
 
     pub fn make_request(&mut self, subject: &str, msg: &[u8]) -> Result<String, NatsError> {
         let mut rng = rand::thread_rng();
-        let inbox: String = rng.gen_ascii_chars().take(16).collect();
+        let inbox: String = rng.sample_iter(&Alphanumeric).take(16).collect();
         let sid = self.subscribe(&inbox, None)?;
         self.unsubscribe_after(sid, 1)?;
         self.publish_with_optional_inbox(subject, msg, Some(&inbox))?;
@@ -800,7 +799,7 @@ fn wait_read_msg(
 }
 
 fn default_tls_connector() -> Result<SslConnector, NatsError> {
-    Ok(SslConnectorBuilder::new(SslMethod::tls())?.build())
+    Ok(SslConnector::builder(SslMethod::tls())?.build())
 }
 
 #[test]

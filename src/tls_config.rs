@@ -2,9 +2,11 @@ extern crate openssl;
 
 use errors::*;
 use std::fmt;
-use self::openssl::ssl::{SslConnector, SslConnectorBuilder, SslMethod};
-use self::openssl::x509::X509;
-use self::openssl::pkey::PKey;
+use self::openssl::{
+    ssl::{SslConnector, SslConnectorBuilder, SslMethod},
+    x509::X509,
+    pkey::{PKey, Private}
+};
 
 #[derive(Clone)]
 pub struct TlsConfig(SslConnector);
@@ -13,7 +15,7 @@ pub struct TlsConfigBuilder(SslConnectorBuilder);
 
 impl TlsConfigBuilder {
     pub fn new() -> Result<TlsConfigBuilder, NatsError> {
-        Ok(TlsConfigBuilder(SslConnectorBuilder::new(
+        Ok(TlsConfigBuilder(SslConnector::builder(
             SslMethod::tls(),
         )?))
     }
@@ -26,7 +28,7 @@ impl TlsConfigBuilder {
     pub fn add_client_certificate(
         &mut self,
         cert: X509,
-        key: PKey,
+        key: PKey<Private>,
     ) -> Result<&mut Self, NatsError> {
         {
             let ctx = &mut self.0;
