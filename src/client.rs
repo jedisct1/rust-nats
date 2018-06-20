@@ -695,9 +695,8 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
     if !verbose {
         return Ok(());
     }
-    let buf_reader = &mut state.buf_reader;
     let mut line = String::new();
-    match buf_reader.read_line(&mut line) {
+    match (&mut state.buf_reader).read_line(&mut line) {
         Ok(line_len) if line_len < "OK\r\n".len() => {
             return Err(NatsError::from((
                 ErrorKind::ServerProtocolError,
@@ -708,20 +707,20 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
         Ok(_) => {}
     };
     match line.as_ref() {
-        "+OK\r\n" => {}
+        "+OK\r\n" => Ok(()),
         "PING\r\n" => {
             let pong = b"PONG\r\n";
             state.stream_writer.write_all(pong)?;
+            wait_ok(state, verbose)
         }
         _ => {
-            return Err(NatsError::from((
+            Err(NatsError::from((
                 ErrorKind::ServerProtocolError,
                 "Received unexpected response from the server",
                 line,
             )))
         }
     }
-    Ok(())
 }
 
 fn wait_read_msg(
