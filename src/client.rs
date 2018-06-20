@@ -713,13 +713,11 @@ fn wait_ok(state: &mut ClientState, verbose: bool) -> Result<(), NatsError> {
             state.stream_writer.write_all(pong)?;
             wait_ok(state, verbose)
         }
-        _ => {
-            Err(NatsError::from((
-                ErrorKind::ServerProtocolError,
-                "Received unexpected response from the server",
-                line,
-            )))
-        }
+        _ => Err(NatsError::from((
+            ErrorKind::ServerProtocolError,
+            "Received unexpected response from the server",
+            line,
+        ))),
     }
 }
 
