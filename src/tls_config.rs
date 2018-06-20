@@ -1,9 +1,7 @@
 extern crate openssl;
 
 use self::openssl::{
-    pkey::{PKey, Private},
-    ssl::{SslConnector, SslConnectorBuilder, SslMethod},
-    x509::X509,
+    pkey::{PKey, Private}, ssl::{SslConnector, SslConnectorBuilder, SslMethod}, x509::X509,
 };
 use errors::*;
 use std::fmt;
@@ -25,13 +23,13 @@ impl TlsConfigBuilder {
 
     pub fn add_client_certificate(
         &mut self,
-        cert: X509,
-        key: PKey<Private>,
+        cert: &X509,
+        key: &PKey<Private>,
     ) -> Result<&mut Self, NatsError> {
         {
             let ctx = &mut self.0;
-            ctx.set_certificate(&cert)?;
-            ctx.set_private_key(&key)?;
+            ctx.set_certificate(cert)?;
+            ctx.set_private_key(key)?;
             ctx.check_private_key()?;
         }
         Ok(self)

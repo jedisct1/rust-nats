@@ -1,5 +1,4 @@
-Rust-NATS
-=========
+# Rust-NATS
 
 Rust-NATS is a Rust client library for the [NATS](https://nats.io) message
 queue.
@@ -20,8 +19,7 @@ cluster nodes.
 It provides a simple low-level interface that makes it easy to send/receive
 messages over Rust channels if needed.
 
-Connecting
-==========
+# Connecting
 
 Single-node client connection:
 
@@ -55,8 +53,7 @@ The client name can also be customized:
 client.set_name("app");
 ```
 
-Publishing messages
-===================
+# Publishing messages
 
 ```rust
 client.publish("subject.test", "test".as_bytes()).unwrap();
@@ -71,8 +68,7 @@ and returns the inbox subject name:
 let inbox = client.make_request("subject.rpc", "test".as_bytes()).unwrap();
 ```
 
-Subscribing to subjects
-=======================
+# Subscribing to subjects
 
 `Client.subscribe()` adds a subscription to a subject, with an optional group:
 
@@ -96,8 +92,7 @@ Or to remove it after `n` messages have been received:
 client.unsubscribe_after(s1, n).unwrap();
 ```
 
-Receiving events
-================
+# Receiving events
 
 `Client.wait()` waits for a new event, and transparently responds to server
 `PING` requests.
@@ -107,6 +102,7 @@ let event = client.wait();
 ```
 
 This returns an `Event` structure:
+
 ```rust
 pub struct Event {
     pub subject: String,
@@ -124,8 +120,8 @@ for event in client.events() {
 }
 ```
 
-TLS
-===
+# TLS
+
 Build and set `TLSConfig` before connect:
 
 ```rust
@@ -155,10 +151,9 @@ let mut builder = nats::TlsConfigBuilder::new().unwrap();
 // Set root certificate
 builder.add_root_certificate(cert).unwrap();
 // Set client certificate
-builder.add_client_certificate(client_cert, client_key).unwrap();
+builder.add_client_certificate(&client_cert, &client_key).unwrap();
 let tls_config = builder.build();
 
 let mut client = nats::Client::new("nats://localhost:4222").unwrap();
 client.set_tls_config(tls_config);
-
 ```

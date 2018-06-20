@@ -10,13 +10,8 @@ use self::serde_json::{de, value::Value};
 use self::url::Url;
 use errors::{ErrorKind::*, *};
 use std::{
-    cmp,
-    collections::HashMap,
-    error::Error,
-    io::{self, BufRead, BufReader, Write},
-    net::TcpStream,
-    thread,
-    time::{Duration, Instant},
+    cmp, collections::HashMap, error::Error, io::{self, BufRead, BufReader, Write}, net::TcpStream,
+    thread, time::{Duration, Instant},
 };
 use stream;
 use tls_config::TlsConfig;
@@ -24,9 +19,9 @@ use tls_config::TlsConfig;
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
 const CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING: u32 = 4;
-const DEFAULT_NAME: &'static str = "#rustlang";
+const DEFAULT_NAME: &str = "#rustlang";
 const DEFAULT_PORT: u16 = 4222;
-const URI_SCHEME: &'static str = "nats";
+const URI_SCHEME: &str = "nats";
 const RETRIES_MAX: u32 = 10;
 
 #[derive(Clone, Debug)]
@@ -109,7 +104,7 @@ impl ConnectWithCredentials {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Channel {
     pub sid: u64,
 }
@@ -156,16 +151,16 @@ impl Client {
                 }),
             };
             servers_info.push(ServerInfo {
-                host: host,
-                port: port,
-                credentials: credentials,
+                host,
+                port,
+                credentials,
                 max_payload: 0,
                 tls_required: false,
             })
         }
         thread_rng().shuffle(&mut servers_info);
         Ok(Client {
-            servers_info: servers_info,
+            servers_info,
             server_idx: 0,
             verbose: false,
             pedantic: false,
@@ -218,7 +213,7 @@ impl Client {
         self.with_reconnect(|mut state| -> Result<Channel, NatsError> {
             state.stream_writer.write_all(cmd.as_bytes())?;
             wait_ok(&mut state, verbose)?;
-            Ok(Channel { sid: sid })
+            Ok(Channel { sid })
         })
     }
 
@@ -466,8 +461,8 @@ impl Client {
             )));
         }
         let state = ClientState {
-            stream_writer: stream_writer,
-            buf_reader: buf_reader,
+            stream_writer,
+            buf_reader,
             max_payload: max_payload as usize,
         };
         self.state = Some(state);
@@ -795,9 +790,9 @@ fn wait_read_msg(
     }
     let event = Event {
         subject: subject.to_owned(),
-        channel: Channel { sid: sid },
-        msg: msg,
-        inbox: inbox,
+        channel: Channel { sid },
+        msg,
+        inbox,
     };
     Ok(event)
 }
