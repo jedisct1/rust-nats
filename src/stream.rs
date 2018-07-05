@@ -1,9 +1,9 @@
 extern crate openssl;
 
+use self::openssl::ssl;
 use std::io;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
-use self::openssl::ssl;
 
 use self::Stream::{Ssl, Tcp};
 
