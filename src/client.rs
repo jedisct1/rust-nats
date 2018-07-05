@@ -126,6 +126,29 @@ pub struct Events<'t> {
     client: &'t mut Client,
 }
 
+impl Clone for Client {
+    fn clone(&self) -> Self {
+        let mut client_clone = Client {
+            servers_info: self.servers_info.clone(),
+            server_idx: self.server_idx.clone(),
+            verbose: self.verbose.clone(),
+            pedantic: self.pedantic.clone(),
+            name: self.name.clone(),
+            state: None,
+            circuit_breaker: None,
+            sid: self.sid.clone(),
+            tls_config: self.tls_config.clone(),
+            subscriptions: self.subscriptions.clone(),
+        };
+
+        if self.state.is_some() {
+            let _ = client_clone.connect();
+        }
+
+        client_clone
+    }
+}
+
 impl Client {
     pub fn new<T: ToStringVec>(uris: T) -> Result<Client, NatsError> {
         let mut servers_info = Vec::new();
