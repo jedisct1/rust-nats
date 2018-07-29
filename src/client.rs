@@ -250,6 +250,15 @@ impl Client {
         self.publish_with_optional_inbox(subject, msg, None)
     }
 
+    pub fn publish_with_inbox(
+        &mut self,
+        subject: &str,
+        msg: &[u8],
+        inbox: &str,
+    ) -> Result<(), NatsError> {
+        self.publish_with_optional_inbox(subject, msg, Some(inbox))
+    }
+
     pub fn make_request(&mut self, subject: &str, msg: &[u8]) -> Result<String, NatsError> {
         let mut rng = rand::thread_rng();
         let inbox: String = rng.sample_iter(&Alphanumeric).take(16).collect();
