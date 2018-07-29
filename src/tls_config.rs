@@ -1,7 +1,9 @@
 extern crate openssl;
 
 use self::openssl::{
-    pkey::{PKey, Private}, ssl::{SslConnector, SslConnectorBuilder, SslMethod}, x509::X509,
+    pkey::{PKey, Private},
+    ssl::{SslConnector, SslConnectorBuilder, SslMethod},
+    x509::X509,
 };
 use errors::*;
 use std::fmt;
