@@ -10,8 +10,13 @@ use self::serde_json::{de, value::Value};
 use self::url::Url;
 use errors::{ErrorKind::*, *};
 use std::{
-    cmp, collections::HashMap, error::Error, io::{self, BufRead, BufReader, Write}, net::TcpStream,
-    thread, time::{Duration, Instant},
+    cmp,
+    collections::HashMap,
+    error::Error,
+    io::{self, BufRead, BufReader, Write},
+    net::TcpStream,
+    thread,
+    time::{Duration, Instant},
 };
 use stream;
 use tls_config::TlsConfig;
@@ -245,6 +250,15 @@ impl Client {
         self.publish_with_optional_inbox(subject, msg, None)
     }
 
+    pub fn publish_with_inbox(
+        &mut self,
+        subject: &str,
+        msg: &[u8],
+        inbox: &str,
+    ) -> Result<(), NatsError> {
+        self.publish_with_optional_inbox(subject, msg, Some(inbox))
+    }
+
     pub fn make_request(&mut self, subject: &str, msg: &[u8]) -> Result<String, NatsError> {
         let mut rng = rand::thread_rng();
         let inbox: String = rng.sample_iter(&Alphanumeric).take(16).collect();
@@ -348,23 +362,16 @@ impl Client {
             )));
         }
         server_info.max_payload = max_payload as usize;
-        server_info.tls_required = obj
-            .get("tls_required")
-            .ok_or_else(|| {
-                NatsError::from(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Server didn't send tls_required",
-                ))
-            })?
-            .as_bool()
-            .ok_or_else(|| {
+        server_info.tls_required = match obj.get("tls_required") {
+            None => false,
+            Some(v) => v.as_bool().ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "Received tls_required is not a boolean",
+                    "Received tls_required is not a bool",
                 )
-            })?;
+            })?,
+        };
         if server_info.tls_required {
-            // Wrap connection with TLS
             let connector = self
                 .tls_config
                 .as_ref()
@@ -381,21 +388,15 @@ impl Client {
                 })?;
             buf_reader = BufReader::new(stream_writer.try_clone()?);
         }
-        let auth_required = obj
-            .get("auth_required")
-            .ok_or_else(|| {
+        let auth_required = match obj.get("auth_required") {
+            None => false,
+            Some(v) => v.as_bool().ok_or_else(|| {
                 NatsError::from(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "Server didn't send auth_required",
                 ))
-            })?
-            .as_bool()
-            .ok_or_else(|| {
-                NatsError::from(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Received auth_required is not a boolean",
-                ))
-            })?;
+            })?,
+        };
         let connect_json = match (auth_required, &server_info.credentials) {
             (true, &Some(ref credentials)) => {
                 let connect = ConnectWithCredentials {
