@@ -1,4 +1,4 @@
-extern crate openssl;
+use openssl;
 
 use self::openssl::ssl;
 use std::io;

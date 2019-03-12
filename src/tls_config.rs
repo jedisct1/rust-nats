@@ -1,11 +1,11 @@
-extern crate openssl;
+use openssl;
 
 use self::openssl::{
     pkey::{PKey, Private},
     ssl::{SslConnector, SslConnectorBuilder, SslMethod},
     x509::X509,
 };
-use errors::*;
+use crate::errors::*;
 use std::fmt;
 
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl TlsConfig {
 }
 
 impl fmt::Debug for TlsConfig {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "TlsConfig {{}}")
     }
 }

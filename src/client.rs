@@ -1,14 +1,16 @@
-extern crate openssl;
-extern crate rand;
-extern crate serde;
-extern crate serde_json;
-extern crate url;
+use openssl;
+use rand;
+
+use serde_json;
+use url;
 
 use self::openssl::ssl::{SslConnector, SslMethod};
-use self::rand::{distributions::Alphanumeric, thread_rng, Rng};
+use self::rand::{distributions::Alphanumeric, seq::SliceRandom, thread_rng, Rng};
 use self::serde_json::{de, value::Value};
 use self::url::Url;
-use errors::{ErrorKind::*, *};
+use crate::errors::{ErrorKind::*, *};
+use crate::stream;
+use crate::tls_config::TlsConfig;
 use std::{
     cmp,
     collections::HashMap,
@@ -18,8 +20,6 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use stream;
-use tls_config::TlsConfig;
 
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
@@ -163,7 +163,8 @@ impl Client {
                 tls_required: false,
             })
         }
-        thread_rng().shuffle(&mut servers_info);
+        let mut rng = thread_rng();
+        servers_info.shuffle(&mut rng);
         Ok(Client {
             servers_info,
             server_idx: 0,
@@ -300,7 +301,7 @@ impl Client {
         })
     }
 
-    pub fn events(&mut self) -> Events {
+    pub fn events(&mut self) -> Events<'_> {
         Events { client: self }
     }
 
@@ -733,7 +734,7 @@ fn wait_read_msg(
             line.to_owned(),
         )));
     }
-    let line = line.trim_right();
+    let line = line.trim_end();
     let mut parts = line[4..].split(' ');
     let subject = parts.next().ok_or_else(|| {
         NatsError::from((
