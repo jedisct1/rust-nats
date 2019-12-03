@@ -261,7 +261,7 @@ impl Client {
     }
 
     pub fn make_request(&mut self, subject: &str, msg: &[u8]) -> Result<String, NatsError> {
-        let mut rng = rand::thread_rng();
+        let rng = rand::thread_rng();
         let inbox: String = rng.sample_iter(&Alphanumeric).take(16).collect();
         let sid = self.subscribe(&inbox, None)?;
         self.unsubscribe_after(sid, 1)?;
