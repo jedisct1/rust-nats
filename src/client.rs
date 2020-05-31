@@ -23,6 +23,7 @@ use std::{
 
 const CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS: u64 = 2000;
 const CIRCUIT_BREAKER_WAIT_BETWEEN_ROUNDS_MS: u64 = 250;
+const DELAY_AFTER_FAILED_CONNECT_ATTEMPT_MS: u64 = 1000;
 const CIRCUIT_BREAKER_ROUNDS_BEFORE_BREAKING: u32 = 4;
 const DEFAULT_NAME: &str = "#rustlang";
 const DEFAULT_PORT: u16 = 4222;
@@ -297,9 +298,7 @@ impl Client {
                 }
                 let cmd = "PONG\r\n";
                 state.stream_writer.write_all(cmd.as_bytes())?;
-                thread::sleep(Duration::from_millis(
-                    CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS,
-                ));
+                thread::sleep(Duration::from_millis(DELAY_AFTER_FAILED_CONNECT_ATTEMPT_MS));
             }
         })
     }
