@@ -43,23 +43,7 @@ impl NatsError {
     }
 }
 
-impl Error for NatsError {
-    fn description(&self) -> &str {
-        match self.repr {
-            ErrorRepr::WithDescription(_, description)
-            | ErrorRepr::WithDescriptionAndDetail(_, description, _) => description,
-            ErrorRepr::IoError(ref e) => e.description(),
-            ErrorRepr::UrlParseError(ref e) => e.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        match self.repr {
-            ErrorRepr::IoError(ref e) => Some(e as &dyn Error),
-            _ => None,
-        }
-    }
-}
+impl Error for NatsError {}
 
 impl fmt::Display for NatsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -111,11 +95,7 @@ impl From<io::Error> for NatsError {
 impl From<openssl::error::ErrorStack> for NatsError {
     fn from(e: openssl::error::ErrorStack) -> NatsError {
         NatsError {
-            repr: ErrorRepr::WithDescriptionAndDetail(
-                ErrorKind::TlsError,
-                "",
-                e.description().to_owned(),
-            ),
+            repr: ErrorRepr::WithDescriptionAndDetail(ErrorKind::TlsError, "", e.to_string()),
         }
     }
 }

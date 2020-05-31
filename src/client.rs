@@ -14,7 +14,6 @@ use crate::tls_config::TlsConfig;
 use std::{
     cmp,
     collections::HashMap,
-    error::Error,
     io::{self, BufRead, BufReader, Write},
     net::TcpStream,
     thread,
@@ -386,7 +385,7 @@ impl Client {
                     NatsError::from((
                         TlsError,
                         "Failed to establish TLS connection",
-                        e.description().to_owned(),
+                        e.to_string(),
                     ))
                 })?;
             buf_reader = BufReader::new(stream_writer.try_clone()?);
@@ -543,7 +542,7 @@ impl Client {
                         return Err(NatsError::from((
                             ClientProtocolError,
                             "Failed to restore subscriptions",
-                            e.description().to_owned(),
+                            e.to_string(),
                         )));
                     }
                     e
