@@ -297,6 +297,9 @@ impl Client {
                 }
                 let cmd = "PONG\r\n";
                 state.stream_writer.write_all(cmd.as_bytes())?;
+                thread::sleep(Duration::from_millis(
+                    CIRCUIT_BREAKER_WAIT_AFTER_BREAKING_MS,
+                ));
             }
         })
     }
